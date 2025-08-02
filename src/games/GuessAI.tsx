@@ -77,12 +77,227 @@ const GuessAI: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) => {
   // Game state
   const [currentItemIndex, setCurrentItemIndex] = useState(0);
   const [score, setScore] = useState(0);
-  const [gamePhase, setGamePhase] = useState<'start' | 'loading' | 'playing' | 'feedback' | 'complete'>('start');
+  const [gamePhase, setGamePhase] = useState<'video' | 'start' | 'loading' | 'playing' | 'feedback' | 'complete'>('video');
   const [userGuess, setUserGuess] = useState<boolean | null>(null);
   const [showExplanation, setShowExplanation] = useState(false);
 
   // Get current item
   const currentItem = gameData[currentItemIndex];
+
+  // Video intro component
+  const VideoIntro = () => {
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [hasStarted, setHasStarted] = useState(false);
+    const [videoRef, setVideoRef] = useState<HTMLVideoElement | null>(null);
+    const [showInstructions, setShowInstructions] = useState(true);
+    const [instructionsClass, setInstructionsClass] = useState('fade-in');
+
+    const handleVideoError = (e: any) => {
+      console.log('Video error:', e);
+      console.log('Video error details:', e.target.error);
+    };
+
+    const handleVideoLoad = () => {
+      console.log('Video loaded successfully!');
+    };
+
+    const handleVideoEnded = () => {
+      console.log('Video ended, transitioning to start screen...');
+      setGamePhase('start');
+    };
+
+    const handleSkipVideo = () => {
+      console.log('Video skipped, transitioning to start screen...');
+      setGamePhase('start');
+    };
+
+    const handlePlayClick = () => {
+      if (videoRef) {
+        if (!hasStarted) {
+          videoRef.muted = false;
+          videoRef.play();
+          setIsPlaying(true);
+          setHasStarted(true);
+        } else {
+          if (isPlaying) {
+            videoRef.pause();
+            setIsPlaying(false);
+          } else {
+            videoRef.play();
+            setIsPlaying(true);
+          }
+        }
+      }
+    };
+
+    const handleSpaceBar = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        handlePlayClick();
+      }
+    };
+
+    React.useEffect(() => {
+      const fadeOutTimer = setTimeout(() => {
+        setInstructionsClass('fade-out');
+      }, 1700);
+
+      const hideTimer = setTimeout(() => {
+        setShowInstructions(false);
+      }, 2000);
+
+      return () => {
+        clearTimeout(fadeOutTimer);
+        clearTimeout(hideTimer);
+      };
+    }, []);
+
+    React.useEffect(() => {
+      document.addEventListener('keydown', handleSpaceBar);
+      return () => {
+        document.removeEventListener('keydown', handleSpaceBar);
+      };
+    }, [isPlaying, hasStarted, videoRef]);
+
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        padding: '20px'
+      }}>
+        <div style={{
+          textAlign: 'center',
+          maxWidth: '800px',
+          width: '100%'
+        }}>
+          <h1 style={{
+            fontSize: '2.5rem',
+            fontWeight: 'bold',
+            color: 'white',
+            marginBottom: '2rem',
+            textShadow: '2px 2px 4px rgba(0, 0, 0, 0.3)'
+          }}>
+            Learn to Spot AI!
+          </h1>
+          
+          <div style={{
+            position: 'relative',
+            background: 'black',
+            borderRadius: '12px',
+            overflow: 'hidden',
+            marginBottom: '2rem',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
+          }}>
+            <video 
+              ref={setVideoRef}
+              style={{
+                width: '100%',
+                height: '400px',
+                objectFit: 'cover',
+                display: 'block'
+              }}
+              playsInline
+              onError={handleVideoError}
+              onLoadedData={handleVideoLoad}
+              onEnded={handleVideoEnded}
+            >
+              <source src="/videos/ai-or-not.mp4" type="video/mp4" />
+              Your browser does not support the video tag.
+            </video>
+            
+            {(!hasStarted || !isPlaying) && (
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'rgba(0, 0, 0, 0.3)',
+                cursor: 'pointer',
+                transition: 'background 0.3s'
+              }} onClick={handlePlayClick}>
+                <div style={{
+                  width: '100px',
+                  height: '100px',
+                  background: 'rgba(255, 255, 255, 0.9)',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '2.5rem',
+                  transition: 'all 0.3s',
+                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'
+                }}>
+                  {!hasStarted ? '▶️' : isPlaying ? '⏸️' : '▶️'}
+                </div>
+              </div>
+            )}
+
+            {showInstructions && (
+              <div style={{
+                position: 'absolute',
+                bottom: '20px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                background: 'rgba(0, 0, 0, 0.7)',
+                color: 'white',
+                padding: '8px 16px',
+                borderRadius: '20px',
+                fontSize: '0.9rem',
+                transition: 'opacity 0.3s ease-in-out',
+                opacity: instructionsClass === 'fade-in' ? 1 : 0
+              }}>
+                <p style={{margin: 0}}>
+                  {!hasStarted 
+                    ? '▶️ Click to start video' 
+                    : isPlaying 
+                      ? '⏸️ Click to pause' 
+                      : '▶️ Click to play'
+                  } • Press SPACE
+                </p>
+              </div>
+            )}
+          </div>
+          
+          <button 
+            onClick={handleSkipVideo}
+            style={{
+              padding: '12px 24px',
+              background: 'rgba(255, 255, 255, 0.2)',
+              color: 'white',
+              border: '2px solid white',
+              borderRadius: '25px',
+              fontSize: '1rem',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.3s',
+              backdropFilter: 'blur(10px)'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'white';
+              e.currentTarget.style.color = '#667eea';
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 255, 255, 0.3)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+              e.currentTarget.style.color = 'white';
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+          >
+            Skip Video
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   const handleStartGame = () => {
     setGamePhase('loading');
@@ -134,7 +349,7 @@ const GuessAI: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) => {
   const resetGame = () => {
     setCurrentItemIndex(0);
     setScore(0);
-    setGamePhase('start');
+    setGamePhase('video');
     setUserGuess(null);
     setShowExplanation(false);
   };
@@ -157,31 +372,36 @@ const GuessAI: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) => {
         maxWidth: '800px',
         width: '100%'
       }}>
-        {/* Header with back button */}
-        <div style={{position: 'relative', marginBottom: '2rem'}}>
-          {onBackToMenu && gamePhase === 'start' && (
-            <button 
-              onClick={onBackToMenu}
-              style={{
-                position: 'absolute',
-                left: 0,
-                top: 0,
-                padding: '8px 16px',
-                background: '#6b7280',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontSize: '0.9rem'
-              }}
-            >
-              ← Back to Games
-            </button>
-          )}
-          <h1 style={{margin: 0, textAlign: 'center', fontSize: '2rem', fontWeight: 'bold', color: '#333'}}>
-            Guess AI
-          </h1>
-        </div>
+        {/* Show video intro */}
+        {gamePhase === 'video' ? (
+          <VideoIntro />
+        ) : (
+          <>
+            {/* Header with back button */}
+            <div style={{position: 'relative', marginBottom: '2rem'}}>
+              {onBackToMenu && gamePhase === 'start' && (
+                <button 
+                  onClick={onBackToMenu}
+                  style={{
+                    position: 'absolute',
+                    left: 0,
+                    top: 0,
+                    padding: '8px 16px',
+                    background: '#6b7280',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem'
+                  }}
+                >
+                  ← Back to Games
+                </button>
+              )}
+              <h1 style={{margin: 0, textAlign: 'center', fontSize: '2rem', fontWeight: 'bold', color: '#333'}}>
+                Guess AI
+              </h1>
+            </div>
 
         {/* Score display */}
         <div style={{marginBottom: '1.5rem'}}>
@@ -451,7 +671,7 @@ const GuessAI: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) => {
           <div>
             {/* Current item display */}
             <div style={{
-              padding: '2rem', 
+              padding: '2rem',
               background: '#f8f9fa',
               borderRadius: '12px',
               marginBottom: '2rem',
@@ -557,7 +777,7 @@ const GuessAI: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) => {
                 </button>
               </div>
             )}
-          </div>
+          </>
         )}
       </div>
     </div>
