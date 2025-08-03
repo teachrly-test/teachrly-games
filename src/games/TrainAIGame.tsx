@@ -312,31 +312,39 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
             /* Mobile responsive styles */
             @media (max-width: 768px) {
               .video-container {
-                padding: 16px;
+                padding: 0;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
               }
               .video-content {
-                padding: 1.5rem;
+                padding: 1rem;
                 max-width: 100%;
+                background: transparent;
+                box-shadow: none;
+                border-radius: 0;
               }
               .video-title {
                 font-size: 1.5rem;
-                margin-bottom: 1.5rem;
+                margin-bottom: 1rem;
+                color: white;
+                text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
               }
               .video-player {
-                /* Force landscape video display on mobile */
+                /* Clean full-width video display */
                 width: 100vw;
-                max-width: calc(100vw - 32px);
-                margin-left: calc(-1.5rem);
-                margin-right: calc(-1.5rem);
-                padding: 0 16px;
+                margin: 0 calc(-1rem);
+                padding: 0;
                 box-sizing: border-box;
+                background: transparent;
               }
               .game-video {
                 width: 100%;
                 height: auto;
                 /* Maintain aspect ratio but use full width */
                 aspect-ratio: 16/9;
-                object-fit: contain;
+                object-fit: cover;
+                border-radius: 0;
+                box-shadow: none;
+                display: block;
               }
               .play-button {
                 width: 60px;
@@ -351,30 +359,40 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
               .skip-button {
                 padding: 10px 20px;
                 font-size: 0.9rem;
+                margin-top: 1rem;
+                background: rgba(255, 255, 255, 0.9);
+                color: #333;
+                backdrop-filter: blur(10px);
+              }
+              .skip-button:hover {
+                background: rgba(255, 255, 255, 1);
               }
             }
             
             @media (max-width: 480px) {
               .video-content {
-                padding: 1rem;
+                padding: 0.5rem;
               }
               .video-title {
                 font-size: 1.25rem;
+                margin: 0.5rem 0 1rem 0;
+                padding: 0 0.5rem;
               }
               .video-player {
-                /* Even more aggressive landscape formatting for small phones */
+                /* Even cleaner display for small phones */
                 width: 100vw;
-                max-width: calc(100vw - 32px);
-                margin-left: calc(-1rem);
-                margin-right: calc(-1rem);
-                padding: 0 16px;
+                margin: 0 calc(-0.5rem);
+                padding: 0;
               }
               .game-video {
                 width: 100%;
-                /* Force 16:9 aspect ratio */
+                /* Force 16:9 aspect ratio with no borders */
                 aspect-ratio: 16/9;
                 object-fit: cover;
-                border-radius: 8px;
+                border-radius: 0;
+                box-shadow: none;
+                border: none;
+                outline: none;
               }
               .play-button {
                 width: 50px;
@@ -385,29 +403,57 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
                 font-size: 0.7rem;
                 padding: 6px 12px;
               }
+              .skip-button {
+                margin: 1rem 0.5rem 0.5rem 0.5rem;
+                width: calc(100% - 1rem);
+              }
             }
             
             /* Portrait orientation specific styles */
             @media (max-width: 768px) and (orientation: portrait) {
+              .video-container {
+                padding: 0;
+                min-height: 100vh;
+                align-items: flex-start;
+              }
+              .video-content {
+                background: transparent;
+                box-shadow: none;
+                border-radius: 0;
+                width: 100%;
+                max-width: 100%;
+                padding: 1rem 0;
+              }
               .video-player {
-                /* Break out of container for full-width landscape video */
+                /* Clean full-screen video */
                 position: relative;
-                left: 50%;
-                right: 50%;
-                margin-left: -50vw;
-                margin-right: -50vw;
                 width: 100vw;
-                max-width: 100vw;
-                padding: 0 20px;
-                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+                left: 0;
+                right: 0;
+                background: #000;
               }
               .game-video {
                 width: 100%;
                 height: auto;
-                /* Enforce landscape aspect ratio */
+                /* Perfect landscape aspect ratio */
                 aspect-ratio: 16/9;
-                object-fit: contain;
+                object-fit: cover;
                 background: #000;
+                border: none;
+                border-radius: 0;
+                box-shadow: none;
+                outline: none;
+              }
+              .video-title {
+                text-align: center;
+                padding: 0 1rem;
+                color: white;
+              }
+              .skip-button {
+                margin: 1rem;
+                align-self: center;
               }
             }
           `}
