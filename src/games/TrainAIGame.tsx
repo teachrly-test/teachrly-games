@@ -13,10 +13,11 @@ const playAudio = (audioPath: string, volume: number = 0.5) => {
   }
 };
 
-// Specific audio functions (removing unused ones for now)
+// Specific audio functions
 const playCorrectSound = () => playAudio('/audio/correct-ding.mp3', 0.7);
 const playWrongSound = () => playAudio('/audio/wrong-buzz.mp3', 0.5);
 const playThinkingSound = () => playAudio('/audio/thinking-beep.mp3', 0.3);
+const playLillyStart = () => playAudio('/audio/lilly-start.mp3', 0.7);
 
 const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) => {
   // Pet pictures data with AI response logic
@@ -30,7 +31,7 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
   const [availablePets, setAvailablePets] = useState(allPetPictures);
   const [draggedPet, setDraggedPet] = useState<any>(null);
   const [currentMessage, setCurrentMessage] = useState<any>(null);
-  const [gamePhase] = useState<'training'>('training'); // Simplified for testing
+  const [gamePhase, setGamePhase] = useState<'video' | 'loading' | 'training'>('video'); // Start with video
   const [wrongAttempts, setWrongAttempts] = useState<{[key: number]: number}>({});
   const [completedPets, setCompletedPets] = useState(0);
   const [isDragBlocked, setIsDragBlocked] = useState(false);
@@ -160,6 +161,402 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
     };
   }, [availablePets, isMobile, currentMessage, isDragBlocked, touchDragPet, isDragging]);
 
+  // Loading component
+  const LoadingScreen = () => {
+    return (
+      <>
+        <style>
+          {`
+            .loading-container {
+              min-height: 100vh;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              padding: 20px;
+            }
+            .loading-content {
+              text-align: center;
+              background: white;
+              padding: 2rem;
+              border-radius: 16px;
+              box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            }
+            .loading-spinner {
+              width: 40px;
+              height: 40px;
+              border: 4px solid #f3f3f3;
+              border-top: 4px solid #667eea;
+              border-radius: 50%;
+              animation: spin 1s linear infinite;
+              margin: 0 auto 1rem auto;
+            }
+            .loading-text {
+              font-size: 1.2rem;
+              color: #333;
+              margin: 0;
+            }
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+            
+            /* Mobile responsive styles */
+            @media (max-width: 768px) {
+              .loading-container {
+                padding: 16px;
+              }
+              .loading-content {
+                padding: 1.5rem;
+                max-width: 90%;
+                width: 100%;
+              }
+              .loading-text {
+                font-size: 1rem;
+              }
+            }
+          `}
+        </style>
+        <div className="loading-container">
+          <div className="loading-content">
+            <div className="loading-spinner"></div>
+            <p className="loading-text">Loading...</p>
+          </div>
+        </div>
+      </>
+    );
+  };
+
+  // Video intro component
+  const VideoIntro = () => {
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [hasStarted, setHasStarted] = useState(false);
+    const [videoRef, setVideoRef] = useState<HTMLVideoElement | null>(null);
+    const [showInstructions, setShowInstructions] = useState(true);
+    const [instructionsClass, setInstructionsClass] = useState('fade-in');
+
+    const handleVideoError = (e: any) => {
+      console.log('Video error:', e);
+      console.log('Video error details:', e.target.error);
+    };
+
+    const handleVideoLoad = () => {
+      console.log('Video loaded successfully!');
+    };
+
+    const handleVideoEnded = () => {
+      console.log('Video ended, transitioning to game...');
+      setGamePhase('loading');
+      setTimeout(() => {
+        setGamePhase('training');
+        playLillyStart();
+      }, 500);
+    };
+
+    const handleSkipVideo = () => {
+      console.log('Video skipped, transitioning to game...');
+      setGamePhase('loading');
+      setTimeout(() => {
+        setGamePhase('training');
+        playLillyStart();
+      }, 500);
+    };
+
+    const handlePlayClick = () => {
+      if (videoRef) {
+        if (!hasStarted) {
+          videoRef.muted = false;
+          videoRef.play();
+          setIsPlaying(true);
+          setHasStarted(true);
+        } else {
+          if (isPlaying) {
+            videoRef.pause();
+            setIsPlaying(false);
+          } else {
+            videoRef.play();
+            setIsPlaying(true);
+          }
+        }
+      }
+    };
+
+    const handleSpaceBar = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        handlePlayClick();
+      }
+    };
+
+    useEffect(() => {
+      const fadeOutTimer = setTimeout(() => {
+        setInstructionsClass('fade-out');
+      }, 1700);
+
+      const hideTimer = setTimeout(() => {
+        setShowInstructions(false);
+      }, 2000);
+
+      return () => {
+        clearTimeout(fadeOutTimer);
+        clearTimeout(hideTimer);
+      };
+    }, []);
+
+    useEffect(() => {
+      document.addEventListener('keydown', handleSpaceBar);
+      return () => {
+        document.removeEventListener('keydown', handleSpaceBar);
+      };
+    }, [isPlaying, hasStarted, videoRef]);
+
+    return (
+      <>
+        <style>
+          {`
+            .video-container {
+              min-height: 100vh;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              padding: 20px;
+            }
+            .video-content {
+              text-align: center;
+              background: white;
+              padding: 2rem;
+              border-radius: 24px;
+              box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+              max-width: 800px;
+              width: 100%;
+            }
+            .video-title {
+              font-size: 2rem;
+              font-weight: bold;
+              color: #333;
+              margin-bottom: 2rem;
+            }
+            .video-player {
+              position: relative;
+              margin-bottom: 2rem;
+              width: 100%;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+            }
+            .game-video {
+              width: 100%;
+              height: auto;
+              border-radius: 12px;
+              box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+              max-width: 100%;
+            }
+            .play-button-overlay {
+              position: absolute;
+              top: 50%;
+              left: 50%;
+              transform: translate(-50%, -50%);
+              cursor: pointer;
+              z-index: 10;
+            }
+            .play-button {
+              width: 80px;
+              height: 80px;
+              background: rgba(0, 0, 0, 0.7);
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 2rem;
+              transition: all 0.3s ease;
+            }
+            .play-button:hover {
+              background: rgba(0, 0, 0, 0.8);
+              transform: scale(1.1);
+            }
+            .video-overlay-animated {
+              position: absolute;
+              bottom: 20px;
+              left: 50%;
+              transform: translateX(-50%);
+              background: rgba(0, 0, 0, 0.8);
+              color: white;
+              padding: 12px 20px;
+              border-radius: 20px;
+              font-size: 0.9rem;
+              transition: opacity 0.3s ease;
+            }
+            .fade-in {
+              opacity: 1;
+            }
+            .fade-out {
+              opacity: 0;
+            }
+            .video-instruction {
+              margin: 0;
+              font-weight: 500;
+            }
+            .skip-button {
+              padding: 12px 24px;
+              background: #6b7280;
+              color: white;
+              border: none;
+              border-radius: 8px;
+              font-size: 1rem;
+              font-weight: 600;
+              cursor: pointer;
+              transition: all 0.2s ease;
+            }
+            .skip-button:hover {
+              background: #4b5563;
+              transform: translateY(-1px);
+            }
+            
+            /* Mobile responsive styles */
+            @media (max-width: 768px) {
+              .video-container {
+                padding: 0;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              }
+              .video-content {
+                padding: 1rem;
+                max-width: 100%;
+                background: transparent;
+                box-shadow: none;
+                border-radius: 0;
+              }
+              .video-title {
+                font-size: 1.5rem;
+                margin-bottom: 1rem;
+                color: white;
+                text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+              }
+              .video-player {
+                width: 100vw;
+                margin: 0 calc(-1rem);
+                padding: 0;
+                box-sizing: border-box;
+                background: transparent;
+              }
+              .game-video {
+                width: 100%;
+                height: auto;
+                aspect-ratio: 16/9;
+                object-fit: cover;
+                border-radius: 0;
+                box-shadow: none;
+                display: block;
+              }
+              .play-button {
+                width: 60px;
+                height: 60px;
+                font-size: 1.5rem;
+              }
+              .video-overlay-animated {
+                bottom: 10px;
+                padding: 8px 16px;
+                font-size: 0.8rem;
+              }
+              .skip-button {
+                padding: 10px 20px;
+                font-size: 0.9rem;
+                margin-top: 1rem;
+                background: rgba(255, 255, 255, 0.9);
+                color: #333;
+                backdrop-filter: blur(10px);
+              }
+              .skip-button:hover {
+                background: rgba(255, 255, 255, 1);
+              }
+            }
+            
+            @media (max-width: 480px) {
+              .video-content {
+                padding: 0.5rem;
+              }
+              .video-title {
+                font-size: 1.25rem;
+                margin: 0.5rem 0 1rem 0;
+                padding: 0 0.5rem;
+              }
+              .video-player {
+                width: 100vw;
+                margin: 0 calc(-0.5rem);
+                padding: 0;
+              }
+              .game-video {
+                width: 100%;
+                aspect-ratio: 16/9;
+                object-fit: cover;
+                border-radius: 0;
+                box-shadow: none;
+                border: none;
+                outline: none;
+              }
+              .play-button {
+                width: 50px;
+                height: 50px;
+                font-size: 1.25rem;
+              }
+              .video-overlay-animated {
+                font-size: 0.7rem;
+                padding: 6px 12px;
+              }
+              .skip-button {
+                margin: 1rem 0.5rem 0.5rem 0.5rem;
+                width: calc(100% - 1rem);
+              }
+            }
+          `}
+        </style>
+        <div className="video-container">
+          <div className="video-content">
+            <h1 className="video-title">Train your AI with pets!</h1>
+            <div className="video-player">
+              <video 
+                ref={setVideoRef}
+                className="game-video"
+                playsInline
+                onError={handleVideoError}
+                onLoadedData={handleVideoLoad}
+                onEnded={handleVideoEnded}
+              >
+                <source src="/videos/l1q1.mp4" type="video/mp4" />
+                <source src="/videos/l1q1.mov" type="video/quicktime" />
+                Your browser does not support the video tag.
+              </video>
+              
+              {(!hasStarted || !isPlaying) && (
+                <div className="play-button-overlay" onClick={handlePlayClick}>
+                  <div className="play-button">
+                    {!hasStarted ? '▶️' : isPlaying ? '⏸️' : '▶️'}
+                  </div>
+                </div>
+              )}
+
+              {showInstructions && (
+                <div className={`video-overlay-animated ${instructionsClass}`}>
+                  <p className="video-instruction">
+                    {!hasStarted 
+                      ? '▶️ Click to start video' 
+                      : isPlaying 
+                        ? '⏸️ Click to pause' 
+                        : '▶️ Click to play'
+                    } • Press SPACE
+                  </p>
+                </div>
+              )}
+            </div>
+            <button className="skip-button" onClick={handleSkipVideo}>
+              Skip Video
+            </button>
+          </div>
+        </div>
+      </>
+    );
+  };
+
   // Unified drop processing for both desktop and mobile
   const processPetDrop = (pet: any) => {
     setIsDragBlocked(true);
@@ -253,6 +650,16 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
       }, 3000);
     }
   };
+
+  // Show video intro
+  if (gamePhase === 'video') {
+    return <VideoIntro />;
+  }
+
+  // Show loading screen
+  if (gamePhase === 'loading') {
+    return <LoadingScreen />;
+  }
 
   // Main game interface
   return (
