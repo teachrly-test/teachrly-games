@@ -45,6 +45,10 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
   const [isShowingFinalResult, setIsShowingFinalResult] = useState(false);
   const [isMobile, setIsMobile] = useState<boolean>(false);
 
+  // Mobile touch drag and drop support
+  const [touchDragPet, setTouchDragPet] = useState<any>(null);
+  const [dragPreview, setDragPreview] = useState<{x: number, y: number, show: boolean}>({ x: 0, y: 0, show: false });
+
   // Detect mobile device
   useEffect(() => {
     const checkMobile = () => {
@@ -54,6 +58,97 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Touch handlers for mobile drag and drop
+  const handleTouchStart = (e: React.TouchEvent, pet: any) => {
+    if (currentMessage || isDragBlocked) {
+      return;
+    }
+    
+    e.preventDefault();
+    e.stopPropagation();
+    setTouchDragPet(pet);
+    const touch = e.touches[0];
+    setDragPreview({
+      x: touch.clientX,
+      y: touch.clientY,
+      show: true
+    });
+    
+    // Aggressive scroll prevention for iOS Safari
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.width = '100%';
+    document.body.style.height = '100%';
+    document.documentElement.style.overflow = 'hidden';
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchDragPet) return;
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const touch = e.touches[0];
+    setDragPreview({
+      x: touch.clientX,
+      y: touch.clientY,
+      show: true
+    });
+    
+    // Additional prevention for iOS bounce scroll
+    return false;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchDragPet) return;
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const touch = e.changedTouches[0];
+    const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+    
+    // Find the chat area (drop zone)
+    const chatArea = elementBelow?.closest('.chat-area');
+    if (chatArea && gamePhase === 'training' && !isDragBlocked && !currentMessage) {
+      // Process the mobile drop
+      processPetDrop(touchDragPet);
+    }
+    
+    setTouchDragPet(null);
+    setDragPreview({ x: 0, y: 0, show: false });
+    
+    // Re-enable page scrolling - restore all properties
+    document.body.style.overflow = '';
+    document.body.style.position = '';
+    document.body.style.width = '';
+    document.body.style.height = '';
+    document.documentElement.style.overflow = '';
+  };
+
+  // Unified drop processing for both desktop and mobile
+  const processPetDrop = (pet: any) => {
+    setIsDragBlocked(true);
+    
+    setAvailablePets(prev => prev.filter(p => p.id !== pet.id));
+    
+    // Play subtle thinking sound
+    playThinkingSound();
+    
+    setCurrentMessage({
+      type: 'thinking',
+      text: 'AI is thinking...',
+      pet: pet
+    });
+
+    setTimeout(() => {
+      const aiResponse = `That is a ${pet.aiGuess}!`;
+      setCurrentMessage({
+        type: 'ai-response',
+        text: aiResponse,
+        pet: pet
+      });
+    }, 1000);
+  };
 
   // Loading component
   const LoadingScreen = () => {
@@ -543,27 +638,8 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
     e.preventDefault();
     
     if (draggedPet && gamePhase === 'training' && !isDragBlocked && !currentMessage) {
-      setIsDragBlocked(true);
-      
-      setAvailablePets(prev => prev.filter(p => p.id !== draggedPet.id));
-      
-      // Play subtle thinking sound
-      playThinkingSound();
-      
-      setCurrentMessage({
-        type: 'thinking',
-        text: 'AI is thinking...',
-        pet: draggedPet
-      });
-
-      setTimeout(() => {
-        const aiResponse = `That is a ${draggedPet.aiGuess}!`;
-        setCurrentMessage({
-          type: 'ai-response',
-          text: aiResponse,
-          pet: draggedPet
-        });
-      }, 1000);
+      processPetDrop(draggedPet);
+      setDraggedPet(null);
     }
   };
 
@@ -1307,6 +1383,21 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
         `}
       </style>
       <div className="game-container">
+        
+        {/* Touch drag preview */}
+        {dragPreview.show && touchDragPet && (
+          <div 
+            className="touch-drag-preview"
+            style={{
+              left: dragPreview.x,
+              top: dragPreview.y
+            }}
+          >
+            <div className="preview-emoji">{touchDragPet.emoji}</div>
+            <div className="preview-name">{touchDragPet.name}</div>
+          </div>
+        )}
+
         <div className="game-content">
           {/* Header with back button */}
           <div className="game-header">
@@ -1443,8 +1534,15 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
                   <div 
                     key={pet.id} 
                     className={`pet-card ${isDragBlocked || currentMessage ? 'drag-disabled' : ''}`}
-                    draggable={!isDragBlocked && !currentMessage}
-                    onDragStart={() => handleDragStart(pet)}
+                    draggable={!isMobile && !isDragBlocked && !currentMessage}
+                    onDragStart={() => !isMobile && handleDragStart(pet)}
+                    onTouchStart={(e) => isMobile && handleTouchStart(e, pet)}
+                    onTouchMove={(e) => isMobile && handleTouchMove(e)}
+                    onTouchEnd={(e) => isMobile && handleTouchEnd(e)}
+                    style={{
+                      touchAction: isMobile ? 'none' : 'auto',
+                      userSelect: 'none'
+                    }}
                   >
                     <div className="pet-emoji">{pet.emoji}</div>
                     <div className="pet-name">{pet.name}</div>
