@@ -204,8 +204,12 @@ const DataAI: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) => {
       show: true
     });
     
-    // Prevent page scrolling during drag
+    // Aggressive scroll prevention for iOS Safari
     document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.width = '100%';
+    document.body.style.height = '100%';
+    document.documentElement.style.overflow = 'hidden';
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
@@ -219,6 +223,9 @@ const DataAI: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) => {
       y: touch.clientY,
       show: true
     });
+    
+    // Additional prevention for iOS bounce scroll
+    return false;
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
@@ -242,8 +249,12 @@ const DataAI: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) => {
     setTouchDragItem(null);
     setDragPreview({ x: 0, y: 0, show: false });
     
-    // Re-enable page scrolling
-    document.body.style.overflow = 'auto';
+    // Re-enable page scrolling - restore all properties
+    document.body.style.overflow = '';
+    document.body.style.position = '';
+    document.body.style.width = '';
+    document.body.style.height = '';
+    document.documentElement.style.overflow = '';
   };
 
   // Desktop drag handlers
@@ -509,6 +520,24 @@ const DataAI: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) => {
             font-size: 0.8rem;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
           }
+
+          /* iOS Safari scroll prevention */
+          .ios-drag-lock {
+            overflow: hidden !important;
+            position: fixed !important;
+            width: 100% !important;
+            height: 100% !important;
+            -webkit-overflow-scrolling: auto !important;
+            overscroll-behavior: none !important;
+          }
+
+          /* Prevent iOS bounce scroll */
+          .drag-item {
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+          }
         `}
       </style>
       <div style={{
@@ -754,9 +783,10 @@ const DataAI: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) => {
                                 fontWeight: isIncorrect ? '600' : 'normal',
                                 cursor: 'grab',
                                 transition: 'all 0.2s ease',
-                                userSelect: 'none'
+                                userSelect: 'none',
+                                touchAction: 'none'
                               }}
-                              className="mobile-very-small"
+                              className="mobile-very-small drag-item"
                               onMouseEnter={(e) => {
                                 if (!isMobile) {
                                   e.currentTarget.style.transform = 'translateY(-1px)';
@@ -807,9 +837,10 @@ const DataAI: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) => {
                         textAlign: 'center',
                         transition: 'all 0.2s ease',
                         fontSize: '0.9rem',
-                        userSelect: 'none'
+                        userSelect: 'none',
+                        touchAction: 'none'
                       }}
-                      className="mobile-item-card"
+                      className="mobile-item-card drag-item"
                       onMouseEnter={(e) => {
                         if (!isMobile) {
                           e.currentTarget.style.transform = 'translateY(-2px)';
