@@ -110,12 +110,26 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
     // Find the chat area (drop zone)
     const chatArea = elementBelow?.closest('.chat-area');
     if (chatArea && gamePhase === 'training' && !isDragBlocked && !currentMessage) {
-      // Process the mobile drop
-      processPetDrop(touchDragPet);
+      // Show visual drop animation first
+      setCurrentMessage({
+        type: 'pet-dropped',
+        text: 'Processing...',
+        pet: touchDragPet
+      });
+      
+      // Clear drag preview immediately
+      setTouchDragPet(null);
+      setDragPreview({ x: 0, y: 0, show: false });
+      
+      // Process the mobile drop after showing the pet
+      setTimeout(() => {
+        processPetDrop(touchDragPet);
+      }, 500);
+    } else {
+      // Drop failed - return pet to inventory
+      setTouchDragPet(null);
+      setDragPreview({ x: 0, y: 0, show: false });
     }
-    
-    setTouchDragPet(null);
-    setDragPreview({ x: 0, y: 0, show: false });
     
     // Re-enable page scrolling - restore all properties
     document.body.style.overflow = '';
@@ -1533,7 +1547,7 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
                 {availablePets.map((pet) => (
                   <div 
                     key={pet.id} 
-                    className={`pet-card ${isDragBlocked || currentMessage ? 'drag-disabled' : ''}`}
+                    className={`pet-card ${isDragBlocked || currentMessage ? 'drag-disabled' : ''} ${touchDragPet?.id === pet.id ? 'dragging' : ''}`}
                     draggable={!isMobile && !isDragBlocked && !currentMessage}
                     onDragStart={() => !isMobile && handleDragStart(pet)}
                     onTouchStart={(e) => isMobile && handleTouchStart(e, pet)}
