@@ -47,7 +47,8 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
 
   // Mobile touch drag and drop support
   const [touchDragPet, setTouchDragPet] = useState<any>(null);
-  const [dragPreview, setDragPreview] = useState<{x: number, y: number, show: boolean}>({ x: 0, y: 0, show: false });
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [dragPosition, setDragPosition] = useState<{x: number, y: number}>({ x: 0, y: 0 });
 
   // Detect mobile device
   useEffect(() => {
@@ -58,111 +59,6 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
-
-  // Touch handlers for mobile drag and drop
-  const handleTouchStart = (e: React.TouchEvent, pet: any) => {
-    if (currentMessage || isDragBlocked) {
-      return;
-    }
-    
-    e.preventDefault();
-    e.stopPropagation();
-    setTouchDragPet(pet);
-    const touch = e.touches[0];
-    setDragPreview({
-      x: touch.clientX,
-      y: touch.clientY,
-      show: true
-    });
-    
-    // Aggressive scroll prevention for iOS Safari
-    document.body.style.overflow = 'hidden';
-    document.body.style.position = 'fixed';
-    document.body.style.width = '100%';
-    document.body.style.height = '100%';
-    document.documentElement.style.overflow = 'hidden';
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!touchDragPet) return;
-    e.preventDefault();
-    e.stopPropagation();
-    
-    const touch = e.touches[0];
-    setDragPreview({
-      x: touch.clientX,
-      y: touch.clientY,
-      show: true
-    });
-    
-    // Additional prevention for iOS bounce scroll
-    return false;
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (!touchDragPet) return;
-    e.preventDefault();
-    e.stopPropagation();
-    
-    const touch = e.changedTouches[0];
-    const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
-    
-    // Find the chat area (drop zone)
-    const chatArea = elementBelow?.closest('.chat-area');
-    if (chatArea && gamePhase === 'training' && !isDragBlocked && !currentMessage) {
-      // Show visual drop animation first
-      setCurrentMessage({
-        type: 'pet-dropped',
-        text: 'Processing...',
-        pet: touchDragPet
-      });
-      
-      // Clear drag preview immediately
-      setTouchDragPet(null);
-      setDragPreview({ x: 0, y: 0, show: false });
-      
-      // Process the mobile drop after showing the pet
-      setTimeout(() => {
-        processPetDrop(touchDragPet);
-      }, 500);
-    } else {
-      // Drop failed - return pet to inventory
-      setTouchDragPet(null);
-      setDragPreview({ x: 0, y: 0, show: false });
-    }
-    
-    // Re-enable page scrolling - restore all properties
-    document.body.style.overflow = '';
-    document.body.style.position = '';
-    document.body.style.width = '';
-    document.body.style.height = '';
-    document.documentElement.style.overflow = '';
-  };
-
-  // Unified drop processing for both desktop and mobile
-  const processPetDrop = (pet: any) => {
-    setIsDragBlocked(true);
-    
-    setAvailablePets(prev => prev.filter(p => p.id !== pet.id));
-    
-    // Play subtle thinking sound
-    playThinkingSound();
-    
-    setCurrentMessage({
-      type: 'thinking',
-      text: 'AI is thinking...',
-      pet: pet
-    });
-
-    setTimeout(() => {
-      const aiResponse = `That is a ${pet.aiGuess}!`;
-      setCurrentMessage({
-        type: 'ai-response',
-        text: aiResponse,
-        pet: pet
-      });
-    }, 1000);
-  };
 
   // Loading component
   const LoadingScreen = () => {
@@ -636,6 +532,99 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
       console.log('Game complete, but waiting for final result to finish showing...');
     }
   }, [generatedPictures, gamePhase, isShowingFinalResult]);
+
+  // Touch handlers for mobile drag and drop
+  const handleTouchStart = (e: React.TouchEvent, pet: any) => {
+    if (currentMessage || isDragBlocked) {
+      return;
+    }
+    
+    e.preventDefault();
+    e.stopPropagation();
+    setTouchDragPet(pet);
+    setIsDragging(true);
+    
+    // Aggressive scroll prevention for iOS Safari
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.width = '100%';
+    document.body.style.height = '100%';
+    document.documentElement.style.overflow = 'hidden';
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchDragPet || !isDragging) return;
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Additional prevention for iOS bounce scroll
+    return false;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchDragPet || !isDragging) return;
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const touch = e.changedTouches[0];
+    const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+    
+    // Find the chat area (drop zone)
+    const chatArea = elementBelow?.closest('.chat-area');
+    if (chatArea && gamePhase === 'training' && !isDragBlocked && !currentMessage) {
+      // Successfully dropped in chat area
+      setIsDragging(false);
+      setTouchDragPet(null);
+      
+      // Immediately show the pet in the chat
+      setCurrentMessage({
+        type: 'pet-dropped',
+        text: 'Let me take a look at this...',
+        pet: touchDragPet
+      });
+      
+      // Process the drop after a brief moment
+      setTimeout(() => {
+        processPetDrop(touchDragPet);
+      }, 800);
+    } else {
+      // Drop failed - reset state
+      setIsDragging(false);
+      setTouchDragPet(null);
+    }
+    
+    // Re-enable page scrolling - restore all properties
+    document.body.style.overflow = '';
+    document.body.style.position = '';
+    document.body.style.width = '';
+    document.body.style.height = '';
+    document.documentElement.style.overflow = '';
+  };
+
+  // Unified drop processing for both desktop and mobile
+  const processPetDrop = (pet: any) => {
+    setIsDragBlocked(true);
+    
+    setAvailablePets(prev => prev.filter(p => p.id !== pet.id));
+    
+    // Play subtle thinking sound
+    playThinkingSound();
+    
+    setCurrentMessage({
+      type: 'thinking',
+      text: 'AI is thinking...',
+      pet: pet
+    });
+
+    setTimeout(() => {
+      const aiResponse = `That is a ${pet.aiGuess}!`;
+      setCurrentMessage({
+        type: 'ai-response',
+        text: aiResponse,
+        pet: pet
+      });
+    }, 1000);
+  };
 
   const handleDragStart = (pet: any) => {
     if (currentMessage || isDragBlocked) {
@@ -1253,6 +1242,59 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
             font-weight: 500;
             color: #64748b;
           }
+
+          /* Dragging state for pet cards */
+          .pet-card.being-dragged {
+            opacity: 0.3;
+            transform: scale(0.9);
+          }
+
+          /* Mobile drag preview */
+          .mobile-drag-preview {
+            position: fixed;
+            pointer-events: none;
+            z-index: 1000;
+            transform: translate(-50%, -50%);
+            opacity: 0.9;
+            background: white;
+            padding: 0.75rem;
+            border-radius: 12px;
+            border: 2px solid #667eea;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            transition: none;
+            min-width: 80px;
+            /* Ensure it doesn't get clipped */
+            max-width: 120px;
+            will-change: transform;
+          }
+
+          .mobile-drag-preview .drag-emoji {
+            font-size: 2rem;
+            margin-bottom: 0.25rem;
+            display: block;
+          }
+
+          .mobile-drag-preview .drag-name {
+            font-size: 0.8rem;
+            color: #64748b;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          /* Chat area highlight when dragging */
+          .chat-area.drag-over {
+            background: #f0f9ff !important;
+            border-color: #667eea !important;
+            border-style: solid !important;
+          }
+
+          .chat-area.drag-over .chat-placeholder {
+            color: #667eea !important;
+            font-weight: 600 !important;
+          }
           
           /* Mobile responsive styles */
           @media (max-width: 768px) {
@@ -1398,17 +1440,17 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
       </style>
       <div className="game-container">
         
-        {/* Touch drag preview */}
-        {dragPreview.show && touchDragPet && (
+        {/* Mobile drag preview */}
+        {isDragging && touchDragPet && (
           <div 
-            className="touch-drag-preview"
+            className="mobile-drag-preview"
             style={{
-              left: dragPreview.x,
-              top: dragPreview.y
+              left: dragPosition.x,
+              top: dragPosition.y
             }}
           >
-            <div className="preview-emoji">{touchDragPet.emoji}</div>
-            <div className="preview-name">{touchDragPet.name}</div>
+            <div className="drag-emoji">{touchDragPet.emoji}</div>
+            <div className="drag-name">{touchDragPet.name}</div>
           </div>
         )}
 
@@ -1431,17 +1473,34 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
           
           <div className="chat-interface">
             <div 
-              className="chat-area"
+              className={`chat-area ${isDragging ? 'drag-over' : ''}`}
               onDragOver={handleDragOver}
               onDrop={handleDrop}
             >
               {!currentMessage ? (
                 <p className="chat-placeholder">
                   {gamePhase === 'training' 
-                    ? isMobile ? "Tap and drag pictures here to train your AI!" : "Drag pictures here to train your AI!"
+                    ? isDragging 
+                      ? "Drop the pet here!" 
+                      : isMobile 
+                        ? "Tap and drag pictures here to train your AI!" 
+                        : "Drag pictures here to train your AI!"
                     : "I want to show you something cool, ask me to create a picture of a dog or a cat!"
                   }
                 </p>
+              ) : currentMessage.type === 'pet-dropped' ? (
+                <div className="chat-message">
+                  <div className="ai-avatar">🤖</div>
+                  <div className="message-content">
+                    <div className="ai-response">Let me take a look at this...</div>
+                    <div className="dragged-pet-display">
+                      <div className="pet-emoji-large">{currentMessage.pet?.emoji}</div>
+                      <div style={{fontSize: '1rem', color: '#64748b', marginTop: '0.5rem'}}>
+                        {currentMessage.pet?.name}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               ) : currentMessage.type === 'thinking' ? (
                 <div className="chat-message">
                   <div className="ai-avatar">🤖</div>
@@ -1547,7 +1606,7 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
                 {availablePets.map((pet) => (
                   <div 
                     key={pet.id} 
-                    className={`pet-card ${isDragBlocked || currentMessage ? 'drag-disabled' : ''} ${touchDragPet?.id === pet.id ? 'dragging' : ''}`}
+                    className={`pet-card ${isDragBlocked || currentMessage ? 'drag-disabled' : ''} ${touchDragPet?.id === pet.id && isDragging ? 'being-dragged' : ''}`}
                     draggable={!isMobile && !isDragBlocked && !currentMessage}
                     onDragStart={() => !isMobile && handleDragStart(pet)}
                     onTouchStart={(e) => isMobile && handleTouchStart(e, pet)}
