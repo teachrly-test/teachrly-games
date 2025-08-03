@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 // Audio helper functions
 const playAudio = (audioPath: string, volume: number = 0.5) => {
@@ -13,42 +13,36 @@ const playAudio = (audioPath: string, volume: number = 0.5) => {
   }
 };
 
-// Specific audio functions
+// Specific audio functions (removing unused ones for now)
 const playCorrectSound = () => playAudio('/audio/correct-ding.mp3', 0.7);
 const playWrongSound = () => playAudio('/audio/wrong-buzz.mp3', 0.5);
-const playSuccessSound = () => playAudio('/audio/success.mp3', 0.8);
 const playThinkingSound = () => playAudio('/audio/thinking-beep.mp3', 0.3);
-const playCatMeow = () => playAudio('/audio/cat-meow.mp3', 0.6);
-const playDogBark = () => playAudio('/audio/dog-bark.mp3', 0.6);
-const playLillyStart = () => playAudio('/audio/lilly-start.mp3', 0.7);
-const playLillyFinal = () => playAudio('/audio/lilly-final.mp3', 0.7);
 
 const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) => {
   // Pet pictures data with AI response logic
   const allPetPictures = [
-    { id: 1, type: 'cat', emoji: '🐱', name: 'Cat 1', aiGuess: 'cat' }, // AI guesses correctly
-    { id: 2, type: 'cat', emoji: '🐈', name: 'Cat 2', aiGuess: 'dog' }, // AI guesses wrong
-    { id: 3, type: 'dog', emoji: '🐶', name: 'Dog 1', aiGuess: 'dog' }, // AI guesses correctly
-    { id: 4, type: 'dog', emoji: '🐕', name: 'Dog 2', aiGuess: 'cat' }, // AI guesses wrong
+    { id: 1, type: 'cat', emoji: '🐱', name: 'Cat 1', aiGuess: 'cat' },
+    { id: 2, type: 'cat', emoji: '🐈', name: 'Cat 2', aiGuess: 'dog' },
+    { id: 3, type: 'dog', emoji: '🐶', name: 'Dog 1', aiGuess: 'dog' },
+    { id: 4, type: 'dog', emoji: '🐕', name: 'Dog 2', aiGuess: 'cat' },
   ];
 
   const [availablePets, setAvailablePets] = useState(allPetPictures);
   const [draggedPet, setDraggedPet] = useState<any>(null);
   const [currentMessage, setCurrentMessage] = useState<any>(null);
-  const [gamePhase, setGamePhase] = useState<'video' | 'loading' | 'training' | 'generation' | 'complete'>('video');
-  const [inputText, setInputText] = useState('');
-  const [generatedPictures, setGeneratedPictures] = useState<string[]>([]);
+  const [gamePhase] = useState<'training'>('training'); // Simplified for testing
   const [wrongAttempts, setWrongAttempts] = useState<{[key: number]: number}>({});
   const [completedPets, setCompletedPets] = useState(0);
   const [isDragBlocked, setIsDragBlocked] = useState(false);
-  const [isTransitioning, setIsTransitioning] = useState(false);
-  const [isShowingFinalResult, setIsShowingFinalResult] = useState(false);
   const [isMobile, setIsMobile] = useState<boolean>(false);
 
   // Mobile touch drag and drop support
   const [touchDragPet, setTouchDragPet] = useState<any>(null);
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [dragPosition, setDragPosition] = useState<{x: number, y: number}>({ x: 0, y: 0 });
+  
+  // Refs for touch event management
+  const petCardRefs = useRef<{[key: number]: HTMLDivElement | null}>({});
 
   // Detect mobile device
   useEffect(() => {
@@ -60,521 +54,47 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Loading component
-  const LoadingScreen = () => {
-    return (
-      <>
-        <style>
-          {`
-            .loading-container {
-              min-height: 100vh;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-              padding: 20px;
-            }
-            .loading-content {
-              text-align: center;
-              background: white;
-              padding: 2rem;
-              border-radius: 16px;
-              box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-            }
-            .loading-spinner {
-              width: 40px;
-              height: 40px;
-              border: 4px solid #f3f3f3;
-              border-top: 4px solid #667eea;
-              border-radius: 50%;
-              animation: spin 1s linear infinite;
-              margin: 0 auto 1rem auto;
-            }
-            .loading-text {
-              font-size: 1.2rem;
-              color: #333;
-              margin: 0;
-            }
-            @keyframes spin {
-              0% { transform: rotate(0deg); }
-              100% { transform: rotate(360deg); }
-            }
-            
-            /* Mobile responsive styles */
-            @media (max-width: 768px) {
-              .loading-container {
-                padding: 16px;
-              }
-              .loading-content {
-                padding: 1.5rem;
-                max-width: 90%;
-                width: 100%;
-              }
-              .loading-text {
-                font-size: 1rem;
-              }
-            }
-          `}
-        </style>
-        <div className="loading-container">
-          <div className="loading-content">
-            <div className="loading-spinner"></div>
-            <p className="loading-text">Loading...</p>
-          </div>
-        </div>
-      </>
-    );
-  };
-
-  // Video intro component
-  const VideoIntro = () => {
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [hasStarted, setHasStarted] = useState(false);
-    const [videoRef, setVideoRef] = useState<HTMLVideoElement | null>(null);
-    const [showInstructions, setShowInstructions] = useState(true);
-    const [instructionsClass, setInstructionsClass] = useState('fade-in');
-
-    const handleVideoError = (e: any) => {
-      console.log('Video error:', e);
-      console.log('Video error details:', e.target.error);
-    };
-
-    const handleVideoLoad = () => {
-      console.log('Video loaded successfully!');
-    };
-
-    const handleVideoEnded = () => {
-      console.log('Video ended, transitioning to game...');
-      setGamePhase('loading');
-      setTimeout(() => {
-        setGamePhase('training');
-        // PLAY LILLY START AUDIO when game begins
-        playLillyStart();
-      }, 500);
-    };
-
-    const handleSkipVideo = () => {
-      console.log('Video skipped, transitioning to game...');
-      setGamePhase('loading');
-      setTimeout(() => {
-        setGamePhase('training');
-        // PLAY LILLY START AUDIO when game begins
-        playLillyStart();
-      }, 500);
-    };
-
-    const handlePlayClick = () => {
-      if (videoRef) {
-        if (!hasStarted) {
-          videoRef.muted = false;
-          videoRef.play();
-          setIsPlaying(true);
-          setHasStarted(true);
-        } else {
-          if (isPlaying) {
-            videoRef.pause();
-            setIsPlaying(false);
-          } else {
-            videoRef.play();
-            setIsPlaying(true);
-          }
-        }
-      }
-    };
-
-    const handleSpaceBar = (e: KeyboardEvent) => {
-      if (e.code === 'Space') {
-        e.preventDefault();
-        handlePlayClick();
-      }
-    };
-
-    useEffect(() => {
-      const fadeOutTimer = setTimeout(() => {
-        setInstructionsClass('fade-out');
-      }, 1700);
-
-      const hideTimer = setTimeout(() => {
-        setShowInstructions(false);
-      }, 2000);
-
-      return () => {
-        clearTimeout(fadeOutTimer);
-        clearTimeout(hideTimer);
-      };
-    }, []);
-
-    useEffect(() => {
-      document.addEventListener('keydown', handleSpaceBar);
-      return () => {
-        document.removeEventListener('keydown', handleSpaceBar);
-      };
-    }, [isPlaying, hasStarted, videoRef]);
-
-    return (
-      <>
-        <style>
-          {`
-            .video-container {
-              min-height: 100vh;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-              padding: 20px;
-            }
-            .video-content {
-              text-align: center;
-              background: white;
-              padding: 2rem;
-              border-radius: 24px;
-              box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
-              max-width: 800px;
-              width: 100%;
-            }
-            .video-title {
-              font-size: 2rem;
-              font-weight: bold;
-              color: #333;
-              margin-bottom: 2rem;
-            }
-            .video-player {
-              position: relative;
-              margin-bottom: 2rem;
-              width: 100%;
-              display: flex;
-              justify-content: center;
-              align-items: center;
-            }
-            .game-video {
-              width: 100%;
-              height: auto;
-              border-radius: 12px;
-              box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-              max-width: 100%;
-            }
-            .play-button-overlay {
-              position: absolute;
-              top: 50%;
-              left: 50%;
-              transform: translate(-50%, -50%);
-              cursor: pointer;
-              z-index: 10;
-            }
-            .play-button {
-              width: 80px;
-              height: 80px;
-              background: rgba(0, 0, 0, 0.7);
-              border-radius: 50%;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              font-size: 2rem;
-              transition: all 0.3s ease;
-            }
-            .play-button:hover {
-              background: rgba(0, 0, 0, 0.8);
-              transform: scale(1.1);
-            }
-            .video-overlay-animated {
-              position: absolute;
-              bottom: 20px;
-              left: 50%;
-              transform: translateX(-50%);
-              background: rgba(0, 0, 0, 0.8);
-              color: white;
-              padding: 12px 20px;
-              border-radius: 20px;
-              font-size: 0.9rem;
-              transition: opacity 0.3s ease;
-            }
-            .fade-in {
-              opacity: 1;
-            }
-            .fade-out {
-              opacity: 0;
-            }
-            .video-instruction {
-              margin: 0;
-              font-weight: 500;
-            }
-            .skip-button {
-              padding: 12px 24px;
-              background: #6b7280;
-              color: white;
-              border: none;
-              border-radius: 8px;
-              font-size: 1rem;
-              font-weight: 600;
-              cursor: pointer;
-              transition: all 0.2s ease;
-            }
-            .skip-button:hover {
-              background: #4b5563;
-              transform: translateY(-1px);
-            }
-            
-            /* Mobile responsive styles */
-            @media (max-width: 768px) {
-              .video-container {
-                padding: 0;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-              }
-              .video-content {
-                padding: 1rem;
-                max-width: 100%;
-                background: transparent;
-                box-shadow: none;
-                border-radius: 0;
-              }
-              .video-title {
-                font-size: 1.5rem;
-                margin-bottom: 1rem;
-                color: white;
-                text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-              }
-              .video-player {
-                /* Clean full-width video display */
-                width: 100vw;
-                margin: 0 calc(-1rem);
-                padding: 0;
-                box-sizing: border-box;
-                background: transparent;
-              }
-              .game-video {
-                width: 100%;
-                height: auto;
-                /* Maintain aspect ratio but use full width */
-                aspect-ratio: 16/9;
-                object-fit: cover;
-                border-radius: 0;
-                box-shadow: none;
-                display: block;
-              }
-              .play-button {
-                width: 60px;
-                height: 60px;
-                font-size: 1.5rem;
-              }
-              .video-overlay-animated {
-                bottom: 10px;
-                padding: 8px 16px;
-                font-size: 0.8rem;
-              }
-              .skip-button {
-                padding: 10px 20px;
-                font-size: 0.9rem;
-                margin-top: 1rem;
-                background: rgba(255, 255, 255, 0.9);
-                color: #333;
-                backdrop-filter: blur(10px);
-              }
-              .skip-button:hover {
-                background: rgba(255, 255, 255, 1);
-              }
-            }
-            
-            @media (max-width: 480px) {
-              .video-content {
-                padding: 0.5rem;
-              }
-              .video-title {
-                font-size: 1.25rem;
-                margin: 0.5rem 0 1rem 0;
-                padding: 0 0.5rem;
-              }
-              .video-player {
-                /* Even cleaner display for small phones */
-                width: 100vw;
-                margin: 0 calc(-0.5rem);
-                padding: 0;
-              }
-              .game-video {
-                width: 100%;
-                /* Force 16:9 aspect ratio with no borders */
-                aspect-ratio: 16/9;
-                object-fit: cover;
-                border-radius: 0;
-                box-shadow: none;
-                border: none;
-                outline: none;
-              }
-              .play-button {
-                width: 50px;
-                height: 50px;
-                font-size: 1.25rem;
-              }
-              .video-overlay-animated {
-                font-size: 0.7rem;
-                padding: 6px 12px;
-              }
-              .skip-button {
-                margin: 1rem 0.5rem 0.5rem 0.5rem;
-                width: calc(100% - 1rem);
-              }
-            }
-            
-            /* Portrait orientation specific styles */
-            @media (max-width: 768px) and (orientation: portrait) {
-              .video-container {
-                padding: 0;
-                min-height: 100vh;
-                align-items: flex-start;
-              }
-              .video-content {
-                background: transparent;
-                box-shadow: none;
-                border-radius: 0;
-                width: 100%;
-                max-width: 100%;
-                padding: 1rem 0;
-              }
-              .video-player {
-                /* Clean full-screen video */
-                position: relative;
-                width: 100vw;
-                margin: 0;
-                padding: 0;
-                left: 0;
-                right: 0;
-                background: #000;
-              }
-              .game-video {
-                width: 100%;
-                height: auto;
-                /* Perfect landscape aspect ratio */
-                aspect-ratio: 16/9;
-                object-fit: cover;
-                background: #000;
-                border: none;
-                border-radius: 0;
-                box-shadow: none;
-                outline: none;
-              }
-              .video-title {
-                text-align: center;
-                padding: 0 1rem;
-                color: white;
-              }
-              .skip-button {
-                margin: 1rem;
-                align-self: center;
-              }
-            }
-          `}
-        </style>
-        <div className="video-container">
-          <div className="video-content">
-            <h1 className="video-title">Train your AI with pets!</h1>
-            <div className="video-player">
-              <video 
-                ref={setVideoRef}
-                className="game-video"
-                playsInline
-                onError={handleVideoError}
-                onLoadedData={handleVideoLoad}
-                onEnded={handleVideoEnded}
-              >
-                <source src="/videos/l1q1.mp4" type="video/mp4" />
-                <source src="/videos/l1q1.mov" type="video/quicktime" />
-                Your browser does not support the video tag.
-              </video>
-              
-              {(!hasStarted || !isPlaying) && (
-                <div className="play-button-overlay" onClick={handlePlayClick}>
-                  <div className="play-button">
-                    {!hasStarted ? '▶️' : isPlaying ? '⏸️' : '▶️'}
-                  </div>
-                </div>
-              )}
-
-              {showInstructions && (
-                <div className={`video-overlay-animated ${instructionsClass}`}>
-                  <p className="video-instruction">
-                    {!hasStarted 
-                      ? '▶️ Click to start video' 
-                      : isPlaying 
-                        ? '⏸️ Click to pause' 
-                        : '▶️ Click to play'
-                    } • Press SPACE
-                  </p>
-                </div>
-              )}
-            </div>
-            <button className="skip-button" onClick={handleSkipVideo}>
-              Skip Video
-            </button>
-          </div>
-        </div>
-      </>
-    );
-  };
-
-  // Training completion logic with transition flag check
-  useEffect(() => {
-    if (completedPets === 4 && gamePhase === 'training' && !isTransitioning) {
-      setGamePhase('loading');
-      
-      setTimeout(() => {
-        setCurrentMessage({
-          type: 'generation-prompt',
-          text: "I want to show you something cool, ask me to create a picture of a dog or a cat!"
-        });
-        setGamePhase('generation');
-        setIsTransitioning(false);
-      }, 500);
-    }
-  }, [completedPets, gamePhase, isTransitioning]);
-
-  // Check if generation phase is complete - now with flag check
-  useEffect(() => {
-    if (gamePhase === 'generation' && generatedPictures.includes('cat') && generatedPictures.includes('dog') && !isShowingFinalResult) {
-      console.log('Game complete, but waiting for final result to finish showing...');
-    }
-  }, [generatedPictures, gamePhase, isShowingFinalResult]);
-
-  // Touch handlers for mobile drag and drop
-  const handleTouchStart = (e: React.TouchEvent, pet: any) => {
+  // Fixed touch handlers - remove preventDefault calls and use proper event management
+  const handleTouchStart = (pet: any, touch: Touch) => {
     if (currentMessage || isDragBlocked) {
       return;
     }
     
-    e.preventDefault();
-    e.stopPropagation();
+    console.log('Touch start for:', pet.name);
     setTouchDragPet(pet);
     setIsDragging(true);
+    setDragPosition({ x: touch.clientX, y: touch.clientY });
     
-    // Aggressive scroll prevention for iOS Safari
+    // Use CSS and body styles to prevent scrolling instead of preventDefault
+    document.body.style.touchAction = 'none';
+    document.body.style.userSelect = 'none';
     document.body.style.overflow = 'hidden';
     document.body.style.position = 'fixed';
     document.body.style.width = '100%';
     document.body.style.height = '100%';
-    document.documentElement.style.overflow = 'hidden';
   };
 
-  const handleTouchMove = (e: React.TouchEvent) => {
+  const handleTouchMove = (e: TouchEvent) => {
     if (!touchDragPet || !isDragging) return;
-    e.preventDefault();
-    e.stopPropagation();
     
-    // Additional prevention for iOS bounce scroll
-    return false;
+    const touch = e.touches[0];
+    setDragPosition({ x: touch.clientX, y: touch.clientY });
   };
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
+  const handleTouchEnd = (e: TouchEvent) => {
     if (!touchDragPet || !isDragging) return;
-    e.preventDefault();
-    e.stopPropagation();
     
     const touch = e.changedTouches[0];
     const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+    
+    console.log('Touch ended at:', { x: touch.clientX, y: touch.clientY });
+    console.log('Element below:', elementBelow);
     
     // Find the chat area (drop zone)
     const chatArea = elementBelow?.closest('.chat-area');
     if (chatArea && gamePhase === 'training' && !isDragBlocked && !currentMessage) {
       // Successfully dropped in chat area
-      setIsDragging(false);
-      setTouchDragPet(null);
+      console.log('Successfully dropped in chat area!');
       
       // Immediately show the pet in the chat
       setCurrentMessage({
@@ -588,18 +108,57 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
         processPetDrop(touchDragPet);
       }, 800);
     } else {
-      // Drop failed - reset state
-      setIsDragging(false);
-      setTouchDragPet(null);
+      console.log('Drop failed - not in chat area');
     }
     
+    // Reset state
+    setIsDragging(false);
+    setTouchDragPet(null);
+    setDragPosition({ x: 0, y: 0 });
+    
     // Re-enable page scrolling - restore all properties
+    document.body.style.touchAction = '';
+    document.body.style.userSelect = '';
     document.body.style.overflow = '';
     document.body.style.position = '';
     document.body.style.width = '';
     document.body.style.height = '';
-    document.documentElement.style.overflow = '';
   };
+
+  // Use useEffect to add non-passive event listeners for mobile touch
+  useEffect(() => {
+    if (!isMobile) return;
+
+    const addTouchListeners = (element: HTMLDivElement, pet: any) => {
+      const startHandler = (e: TouchEvent) => {
+        handleTouchStart(pet, e.touches[0]);
+      };
+      
+      // Add non-passive listeners
+      element.addEventListener('touchstart', startHandler, { passive: false });
+      element.addEventListener('touchmove', handleTouchMove, { passive: false });
+      element.addEventListener('touchend', handleTouchEnd, { passive: false });
+      
+      return () => {
+        element.removeEventListener('touchstart', startHandler);
+        element.removeEventListener('touchmove', handleTouchMove);
+        element.removeEventListener('touchend', handleTouchEnd);
+      };
+    };
+
+    const cleanupFunctions: (() => void)[] = [];
+    
+    availablePets.forEach(pet => {
+      const element = petCardRefs.current[pet.id];
+      if (element) {
+        cleanupFunctions.push(addTouchListeners(element, pet));
+      }
+    });
+
+    return () => {
+      cleanupFunctions.forEach(cleanup => cleanup());
+    };
+  }, [availablePets, isMobile, currentMessage, isDragBlocked, touchDragPet, isDragging]);
 
   // Unified drop processing for both desktop and mobile
   const processPetDrop = (pet: any) => {
@@ -652,7 +211,6 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
     const userIsCorrect = (userAnswer === 'yes' && aiWasCorrect) || (userAnswer === 'no' && !aiWasCorrect);
 
     if (userIsCorrect) {
-      // PLAY CORRECT SOUND
       playCorrectSound();
       
       const newCompletedCount = completedPets + 1;
@@ -665,19 +223,11 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
       
       setCompletedPets(newCompletedCount);
       
-      if (isLastPet) {
-        setIsTransitioning(true);
-      }
-      
       setTimeout(() => {
         setCurrentMessage(null);
         setIsDragBlocked(false);
-        if (isLastPet) {
-          setIsTransitioning(false);
-        }
       }, isLastPet ? 2500 : 1500);
     } else {
-      // PLAY WRONG SOUND
       playWrongSound();
       
       const currentAttempts = wrongAttempts[pet.id] || 0;
@@ -703,255 +253,6 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
       }, 3000);
     }
   };
-
-  const handleSendMessage = () => {
-    if (gamePhase !== 'generation') return;
-
-    const message = inputText.toLowerCase().trim();
-    
-    if (message.includes('cat') || message.includes('dog')) {
-      const requestedAnimal = message.includes('cat') ? 'cat' : 'dog';
-      const generatedEmoji = requestedAnimal === 'cat' ? '🐱' : '🐶';
-      
-      // Update generated pictures first
-      const updatedPictures = [...generatedPictures];
-      if (!updatedPictures.includes(requestedAnimal)) {
-        updatedPictures.push(requestedAnimal);
-      }
-      setGeneratedPictures(updatedPictures);
-      
-      // Check if this will complete the game
-      const willCompleteGame = updatedPictures.includes('cat') && updatedPictures.includes('dog');
-      
-      setCurrentMessage({
-        type: 'generated-image',
-        text: `Here's a ${requestedAnimal} I created for you!`,
-        image: generatedEmoji
-      });
-      
-      // PLAY ANIMAL SOUND based on what was generated
-      if (requestedAnimal === 'cat') {
-        playCatMeow();
-      } else if (requestedAnimal === 'dog') {
-        playDogBark();
-      }
-      
-      setInputText('');
-      
-      // Handle timing based on whether game is complete
-      if (willCompleteGame) {
-        // This is the final result - show it longer then end game
-        setIsShowingFinalResult(true);
-        setTimeout(() => {
-          setIsShowingFinalResult(false);
-          // PLAY SUCCESS SOUND when game completes
-          playSuccessSound();
-          
-          // PLAY LILLY FINAL AUDIO after success sound finishes (approximate 3 second delay)
-          setTimeout(() => {
-            playLillyFinal();
-          }, 3000);
-          
-          setGamePhase('loading');
-          setTimeout(() => {
-            setGamePhase('complete');
-          }, 500);
-        }, 3000);
-      } else {
-        // Not the final result - show normally then return to prompt
-        setTimeout(() => {
-          setCurrentMessage({
-            type: 'generation-prompt',
-            text: "I want to show you something cool, ask me to create a picture of a dog or a cat!"
-          });
-        }, 3000);
-      }
-    } else {
-      setInputText('');
-      
-      setCurrentMessage({
-        type: 'input-error',
-        text: "Type either 'cat' or 'dog' into the text box!"
-      });
-      
-      setTimeout(() => {
-        setCurrentMessage({
-          type: 'generation-prompt',
-          text: "I want to show you something cool, ask me to create a picture of a dog or a cat!"
-        });
-      }, 3000);
-    }
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleSendMessage();
-    }
-  };
-
-  const handleReplay = () => {
-    setAvailablePets(allPetPictures);
-    setDraggedPet(null);
-    setCurrentMessage(null);
-    setGamePhase('video');
-    setInputText('');
-    setGeneratedPictures([]);
-    setWrongAttempts({});
-    setCompletedPets(0);
-    setIsDragBlocked(false);
-    setIsTransitioning(false);
-    setIsShowingFinalResult(false);
-  };
-
-  // Show video intro
-  if (gamePhase === 'video') {
-    return <VideoIntro />;
-  }
-
-  // Show loading screen
-  if (gamePhase === 'loading') {
-    return <LoadingScreen />;
-  }
-
-  // Game completion screen
-  if (gamePhase === 'complete') {
-    return (
-      <>
-        <style>
-          {`
-            .completion-container {
-              min-height: 100vh;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-              padding: 20px;
-            }
-            .completion-content {
-              text-align: center;
-              background: white;
-              padding: 3rem;
-              border-radius: 24px;
-              box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
-              max-width: 600px;
-              width: 100%;
-            }
-            .completion-title {
-              font-size: 2.5rem;
-              font-weight: bold;
-              color: #333;
-              margin-bottom: 1rem;
-            }
-            .completion-emoji {
-              font-size: 4rem;
-              margin: 1rem 0;
-            }
-            .completion-message {
-              font-size: 1.2rem;
-              color: #555;
-              line-height: 1.6;
-              margin-bottom: 2rem;
-            }
-            .completion-buttons {
-              display: flex;
-              gap: 1rem;
-              justify-content: center;
-              flex-wrap: wrap;
-            }
-            .replay-button, .back-button {
-              padding: 15px 30px;
-              border: none;
-              border-radius: 8px;
-              font-size: 1.1rem;
-              font-weight: 600;
-              cursor: pointer;
-              transition: all 0.2s ease;
-            }
-            .replay-button {
-              background: linear-gradient(135deg, #667eea, #764ba2);
-              color: white;
-            }
-            .replay-button:hover {
-              transform: translateY(-2px);
-              box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
-            }
-            .back-button {
-              background: #6b7280;
-              color: white;
-            }
-            .back-button:hover {
-              background: #4b5563;
-              transform: translateY(-1px);
-            }
-            
-            /* Mobile responsive styles */
-            @media (max-width: 768px) {
-              .completion-container {
-                padding: 16px;
-              }
-              .completion-content {
-                padding: 2rem 1.5rem;
-                max-width: 100%;
-              }
-              .completion-title {
-                font-size: 1.8rem;
-              }
-              .completion-emoji {
-                font-size: 3rem;
-              }
-              .completion-message {
-                font-size: 1rem;
-              }
-              .completion-buttons {
-                flex-direction: column;
-                align-items: center;
-              }
-              .replay-button, .back-button {
-                padding: 12px 24px;
-                font-size: 1rem;
-                width: 100%;
-                max-width: 200px;
-              }
-            }
-            
-            @media (max-width: 480px) {
-              .completion-content {
-                padding: 1.5rem 1rem;
-              }
-              .completion-title {
-                font-size: 1.5rem;
-              }
-              .completion-emoji {
-                font-size: 2.5rem;
-              }
-              .completion-message {
-                font-size: 0.9rem;
-              }
-            }
-          `}
-        </style>
-        <div className="completion-container">
-          <div className="completion-content">
-            <h1 className="completion-title">Congrats! You finished!</h1>
-            <div className="completion-emoji">🎉</div>
-            <p className="completion-message">
-              You successfully trained the AI to recognize cats and dogs, and then used it to generate new pictures!
-            </p>
-            <div className="completion-buttons">
-              <button className="replay-button" onClick={handleReplay}>
-                Replay
-              </button>
-              {onBackToMenu && (
-                <button className="back-button" onClick={onBackToMenu}>
-                  Back to Games
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </>
-    );
-  }
 
   // Main game interface
   return (
@@ -1136,66 +437,6 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
             text-align: center;
             border: 2px solid #f59e0b;
           }
-          .error-message {
-            background: #fee2e2;
-            color: #dc2626;
-            padding: 1rem;
-            border-radius: 12px;
-            font-size: 1.1rem;
-            font-weight: 600;
-            text-align: center;
-            border: 2px solid #ef4444;
-          }
-          .generated-image {
-            text-align: center;
-            font-size: 4rem;
-            margin-top: 1rem;
-          }
-          .input-area {
-            background: #f1f5f9;
-            padding: 1rem;
-          }
-          .input-row {
-            display: flex;
-            gap: 0.5rem;
-          }
-          .chat-input {
-            flex: 1;
-            padding: 12px 16px;
-            border: 2px solid #e2e8f0;
-            border-radius: 8px;
-            font-size: 1rem;
-            outline: none;
-            transition: border-color 0.2s;
-          }
-          .chat-input:focus {
-            border-color: #667eea;
-          }
-          .chat-input:disabled {
-            background: #f8fafc;
-            color: #94a3b8;
-            cursor: not-allowed;
-          }
-          .send-button {
-            padding: 12px 24px;
-            background: #667eea;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-          }
-          .send-button:hover:not(:disabled) {
-            background: #5a67d8;
-            transform: translateY(-1px);
-          }
-          .send-button:disabled {
-            background: #94a3b8;
-            cursor: not-allowed;
-            transform: none;
-          }
           .inventory {
             background: #f8fafc;
             padding: 1.5rem;
@@ -1223,6 +464,7 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
             transition: all 0.2s ease;
             border: 2px solid #e2e8f0;
             user-select: none;
+            touch-action: none;
           }
           .pet-card:hover:not(.drag-disabled) {
             transform: translateY(-2px);
@@ -1242,55 +484,43 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
             font-weight: 500;
             color: #64748b;
           }
-
-          /* Dragging state for pet cards */
           .pet-card.being-dragged {
             opacity: 0.3;
             transform: scale(0.9);
           }
-
-          /* Mobile drag preview */
           .mobile-drag-preview {
             position: fixed;
             pointer-events: none;
             z-index: 1000;
             transform: translate(-50%, -50%);
-            opacity: 0.9;
+            opacity: 0.8;
             background: white;
-            padding: 0.75rem;
-            border-radius: 12px;
+            padding: 0.5rem;
+            border-radius: 8px;
             border: 2px solid #667eea;
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+            font-size: 0.8rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
             text-align: center;
-            transition: none;
-            min-width: 80px;
-            /* Ensure it doesn't get clipped */
-            max-width: 120px;
+            top: 0;
+            left: 0;
             will-change: transform;
           }
-
           .mobile-drag-preview .drag-emoji {
-            font-size: 2rem;
+            font-size: 1.5rem;
             margin-bottom: 0.25rem;
             display: block;
           }
-
           .mobile-drag-preview .drag-name {
-            font-size: 0.8rem;
+            font-size: 0.7rem;
             color: #64748b;
             font-weight: 500;
             white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
           }
-
-          /* Chat area highlight when dragging */
           .chat-area.drag-over {
             background: #f0f9ff !important;
             border-color: #667eea !important;
             border-style: solid !important;
           }
-
           .chat-area.drag-over .chat-placeholder {
             color: #667eea !important;
             font-weight: 600 !important;
@@ -1355,27 +585,9 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
               padding: 10px 20px;
               font-size: 0.9rem;
             }
-            .correct-message, .retry-message, .error-message {
+            .correct-message, .retry-message {
               font-size: 1rem;
               padding: 0.75rem;
-            }
-            .generated-image {
-              font-size: 3rem;
-            }
-            .input-area {
-              padding: 0.75rem;
-            }
-            .input-row {
-              flex-direction: column;
-              gap: 0.5rem;
-            }
-            .chat-input {
-              font-size: 0.9rem;
-              padding: 10px 12px;
-            }
-            .send-button {
-              font-size: 0.9rem;
-              padding: 10px 20px;
             }
             .inventory {
               padding: 1rem;
@@ -1419,9 +631,6 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
             .pet-emoji-large {
               font-size: 2.5rem;
             }
-            .generated-image {
-              font-size: 2.5rem;
-            }
             .pet-grid {
               grid-template-columns: 1fr 1fr;
               gap: 0.5rem;
@@ -1445,8 +654,7 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
           <div 
             className="mobile-drag-preview"
             style={{
-              left: `${dragPosition.x}px`,
-              top: `${dragPosition.y}px`
+              transform: `translate(${dragPosition.x - 50}px, ${dragPosition.y - 50}px)`
             }}
           >
             <div className="drag-emoji">{touchDragPet.emoji}</div>
@@ -1525,25 +733,6 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
                 <div className="retry-message">
                   {currentMessage.text}
                 </div>
-              ) : currentMessage.type === 'input-error' ? (
-                <div className="error-message">
-                  {currentMessage.text}
-                </div>
-              ) : currentMessage.type === 'generated-image' ? (
-                <div className="chat-message">
-                  <div className="ai-avatar">🤖</div>
-                  <div className="message-content">
-                    <div className="ai-response">{currentMessage.text}</div>
-                    <div className="generated-image">{currentMessage.image}</div>
-                  </div>
-                </div>
-              ) : currentMessage.type === 'generation-prompt' ? (
-                <div className="chat-message">
-                  <div className="ai-avatar">🤖</div>
-                  <div className="message-content">
-                    <div className="ai-response">{currentMessage.text}</div>
-                  </div>
-                </div>
               ) : (
                 <div className="chat-message">
                   <div className="ai-avatar">🤖</div>
@@ -1573,27 +762,6 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
                 </div>
               )}
             </div>
-            
-            <div className="input-area">
-              <div className="input-row">
-                <input 
-                  type="text" 
-                  placeholder={gamePhase === 'training' ? "Type a message..." : "Type 'cat' or 'dog'..."}
-                  className="chat-input"
-                  value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  disabled={gamePhase === 'training'}
-                />
-                <button 
-                  className="send-button"
-                  onClick={handleSendMessage}
-                  disabled={gamePhase === 'training'}
-                >
-                  Send
-                </button>
-              </div>
-            </div>
           </div>
           
           {gamePhase === 'training' && (
@@ -1606,16 +774,10 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
                 {availablePets.map((pet) => (
                   <div 
                     key={pet.id} 
+                    ref={el => { petCardRefs.current[pet.id] = el; }}
                     className={`pet-card ${isDragBlocked || currentMessage ? 'drag-disabled' : ''} ${touchDragPet?.id === pet.id && isDragging ? 'being-dragged' : ''}`}
                     draggable={!isMobile && !isDragBlocked && !currentMessage}
                     onDragStart={() => !isMobile && handleDragStart(pet)}
-                    onTouchStart={(e) => isMobile && handleTouchStart(e, pet)}
-                    onTouchMove={(e) => isMobile && handleTouchMove(e)}
-                    onTouchEnd={(e) => isMobile && handleTouchEnd(e)}
-                    style={{
-                      touchAction: isMobile ? 'none' : 'auto',
-                      userSelect: 'none'
-                    }}
                   >
                     <div className="pet-emoji">{pet.emoji}</div>
                     <div className="pet-name">{pet.name}</div>
