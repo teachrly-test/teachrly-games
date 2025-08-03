@@ -55,8 +55,10 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Fixed touch handlers - remove preventDefault calls and use proper event management
-  const handleTouchStart = (pet: any, touch: Touch) => {
+
+
+  // Simplified touch handlers for React events
+  const handleTouchStart = (e: React.TouchEvent, pet: any) => {
     if (currentMessage || isDragBlocked) {
       return;
     }
@@ -64,9 +66,11 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
     console.log('Touch start for:', pet.name);
     setTouchDragPet(pet);
     setIsDragging(true);
+    
+    const touch = e.touches[0];
     setDragPosition({ x: touch.clientX, y: touch.clientY });
     
-    // Use CSS and body styles to prevent scrolling instead of preventDefault
+    // Use CSS and body styles to prevent scrolling
     document.body.style.touchAction = 'none';
     document.body.style.userSelect = 'none';
     document.body.style.overflow = 'hidden';
@@ -75,14 +79,14 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
     document.body.style.height = '100%';
   };
 
-  const handleTouchMove = (e: TouchEvent) => {
+  const handleTouchMove = (e: React.TouchEvent) => {
     if (!touchDragPet || !isDragging) return;
     
     const touch = e.touches[0];
     setDragPosition({ x: touch.clientX, y: touch.clientY });
   };
 
-  const handleTouchEnd = (e: TouchEvent) => {
+  const handleTouchEnd = (e: React.TouchEvent) => {
     if (!touchDragPet || !isDragging) return;
     
     const touch = e.changedTouches[0];
@@ -125,41 +129,6 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
     document.body.style.width = '';
     document.body.style.height = '';
   };
-
-  // Use useEffect to add non-passive event listeners for mobile touch
-  useEffect(() => {
-    if (!isMobile) return;
-
-    const addTouchListeners = (element: HTMLDivElement, pet: any) => {
-      const startHandler = (e: TouchEvent) => {
-        handleTouchStart(pet, e.touches[0]);
-      };
-      
-      // Add non-passive listeners
-      element.addEventListener('touchstart', startHandler, { passive: false });
-      element.addEventListener('touchmove', handleTouchMove, { passive: false });
-      element.addEventListener('touchend', handleTouchEnd, { passive: false });
-      
-      return () => {
-        element.removeEventListener('touchstart', startHandler);
-        element.removeEventListener('touchmove', handleTouchMove);
-        element.removeEventListener('touchend', handleTouchEnd);
-      };
-    };
-
-    const cleanupFunctions: (() => void)[] = [];
-    
-    availablePets.forEach(pet => {
-      const element = petCardRefs.current[pet.id];
-      if (element) {
-        cleanupFunctions.push(addTouchListeners(element, pet));
-      }
-    });
-
-    return () => {
-      cleanupFunctions.forEach(cleanup => cleanup());
-    };
-  }, [availablePets, isMobile, currentMessage, isDragBlocked, touchDragPet, isDragging]);
 
   // Loading component
   const LoadingScreen = () => {
@@ -1185,6 +1154,9 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
                     className={`pet-card ${isDragBlocked || currentMessage ? 'drag-disabled' : ''} ${touchDragPet?.id === pet.id && isDragging ? 'being-dragged' : ''}`}
                     draggable={!isMobile && !isDragBlocked && !currentMessage}
                     onDragStart={() => !isMobile && handleDragStart(pet)}
+                    onTouchStart={(e) => isMobile && handleTouchStart(e, pet)}
+                    onTouchMove={(e) => isMobile && handleTouchMove(e)}
+                    onTouchEnd={(e) => isMobile && handleTouchEnd(e)}
                   >
                     <div className="pet-emoji">{pet.emoji}</div>
                     <div className="pet-name">{pet.name}</div>
