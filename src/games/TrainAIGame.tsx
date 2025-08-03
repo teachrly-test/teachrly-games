@@ -236,12 +236,17 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
             .video-player {
               position: relative;
               margin-bottom: 2rem;
+              width: 100%;
+              display: flex;
+              justify-content: center;
+              align-items: center;
             }
             .game-video {
               width: 100%;
               height: auto;
               border-radius: 12px;
               box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+              max-width: 100%;
             }
             .play-button-overlay {
               position: absolute;
@@ -317,6 +322,22 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
                 font-size: 1.5rem;
                 margin-bottom: 1.5rem;
               }
+              .video-player {
+                /* Force landscape video display on mobile */
+                width: 100vw;
+                max-width: calc(100vw - 32px);
+                margin-left: calc(-1.5rem);
+                margin-right: calc(-1.5rem);
+                padding: 0 16px;
+                box-sizing: border-box;
+              }
+              .game-video {
+                width: 100%;
+                height: auto;
+                /* Maintain aspect ratio but use full width */
+                aspect-ratio: 16/9;
+                object-fit: contain;
+              }
               .play-button {
                 width: 60px;
                 height: 60px;
@@ -340,6 +361,21 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
               .video-title {
                 font-size: 1.25rem;
               }
+              .video-player {
+                /* Even more aggressive landscape formatting for small phones */
+                width: 100vw;
+                max-width: calc(100vw - 32px);
+                margin-left: calc(-1rem);
+                margin-right: calc(-1rem);
+                padding: 0 16px;
+              }
+              .game-video {
+                width: 100%;
+                /* Force 16:9 aspect ratio */
+                aspect-ratio: 16/9;
+                object-fit: cover;
+                border-radius: 8px;
+              }
               .play-button {
                 width: 50px;
                 height: 50px;
@@ -348,6 +384,30 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
               .video-overlay-animated {
                 font-size: 0.7rem;
                 padding: 6px 12px;
+              }
+            }
+            
+            /* Portrait orientation specific styles */
+            @media (max-width: 768px) and (orientation: portrait) {
+              .video-player {
+                /* Break out of container for full-width landscape video */
+                position: relative;
+                left: 50%;
+                right: 50%;
+                margin-left: -50vw;
+                margin-right: -50vw;
+                width: 100vw;
+                max-width: 100vw;
+                padding: 0 20px;
+                box-sizing: border-box;
+              }
+              .game-video {
+                width: 100%;
+                height: auto;
+                /* Enforce landscape aspect ratio */
+                aspect-ratio: 16/9;
+                object-fit: contain;
+                background: #000;
               }
             }
           `}
