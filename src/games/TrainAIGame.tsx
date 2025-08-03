@@ -1441,12 +1441,12 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
       <div className="game-container">
         
         {/* Mobile drag preview */}
-        {isDragging && touchDragPet && (
+        {isDragging && touchDragPet && dragPosition.x > 0 && dragPosition.y > 0 && (
           <div 
             className="mobile-drag-preview"
             style={{
-              left: dragPosition.x,
-              top: dragPosition.y
+              left: `${dragPosition.x}px`,
+              top: `${dragPosition.y}px`
             }}
           >
             <div className="drag-emoji">{touchDragPet.emoji}</div>
