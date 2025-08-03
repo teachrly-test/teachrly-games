@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import TrainAIGame from './games/TrainAIGame'
 import GuessAI from './games/GuessAI'
+import DataAI from './games/DataAi'
 
 function App() {
-  const [currentGame, setCurrentGame] = useState<'menu' | 'train' | 'guess'>('menu');
+  const [currentGame, setCurrentGame] = useState<'menu' | 'train' | 'guess' | 'data'>('menu');
 
   if (currentGame === 'train') {
     return <TrainAIGame onBackToMenu={() => setCurrentGame('menu')} />;
@@ -13,7 +14,11 @@ function App() {
     return <GuessAI onBackToMenu={() => setCurrentGame('menu')} />;
   }
 
-  // Enhanced Game selection menu with inline styles
+  if (currentGame === 'data') {
+    return <DataAI onBackToMenu={() => setCurrentGame('menu')} />;
+  }
+
+  // Enhanced Game selection menu with DataAI
   return (
     <div style={{
       minHeight: '100vh',
@@ -70,7 +75,7 @@ function App() {
         boxShadow: '0 25px 50px rgba(0, 0, 0, 0.25)',
         padding: '40px',
         textAlign: 'center',
-        maxWidth: '450px',
+        maxWidth: '500px',
         width: '100%',
         border: '1px solid rgba(255, 255, 255, 0.2)'
       }}>
@@ -168,6 +173,7 @@ function App() {
               fontSize: '16px',
               boxShadow: '0 10px 20px rgba(16, 185, 129, 0.3)',
               transition: 'all 0.3s ease',
+              marginBottom: '16px',
               position: 'relative',
               overflow: 'hidden'
             }}
@@ -190,6 +196,46 @@ function App() {
               <div style={{ textAlign: 'left' }}>
                 <div style={{ fontSize: '20px', fontWeight: 'bold' }}>Guess AI</div>
                 <div style={{ fontSize: '14px', opacity: 0.9 }}>Spot AI in everyday situations</div>
+              </div>
+            </div>
+          </button>
+
+          <button
+            onClick={() => setCurrentGame('data')}
+            style={{
+              width: '100%',
+              background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+              color: 'white',
+              fontWeight: 'bold',
+              padding: '24px 32px',
+              borderRadius: '16px',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '16px',
+              boxShadow: '0 10px 20px rgba(245, 158, 11, 0.3)',
+              transition: 'all 0.3s ease',
+              position: 'relative',
+              overflow: 'hidden'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px) scale(1.02)';
+              e.currentTarget.style.boxShadow = '0 15px 30px rgba(245, 158, 11, 0.4)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0) scale(1)';
+              e.currentTarget.style.boxShadow = '0 10px 20px rgba(245, 158, 11, 0.3)';
+            }}
+          >
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '12px'
+            }}>
+              <span style={{ fontSize: '32px' }}>🕵️</span>
+              <div style={{ textAlign: 'left' }}>
+                <div style={{ fontSize: '20px', fontWeight: 'bold' }}>Data Detective</div>
+                <div style={{ fontSize: '14px', opacity: 0.9 }}>Sort AI training data by type</div>
               </div>
             </div>
           </button>
