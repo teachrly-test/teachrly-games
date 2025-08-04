@@ -18,6 +18,10 @@ const playCorrectSound = () => playAudio('/audio/correct-ding.mp3', 0.7);
 const playWrongSound = () => playAudio('/audio/wrong-buzz.mp3', 0.5);
 const playThinkingSound = () => playAudio('/audio/thinking-beep.mp3', 0.3);
 const playLillyStart = () => playAudio('/audio/lilly-start.mp3', 0.7);
+const playSuccessSound = () => playAudio('/audio/success.mp3', 0.8);
+const playCatMeow = () => playAudio('/audio/cat-meow.mp3', 0.6);
+const playDogBark = () => playAudio('/audio/dog-bark.mp3', 0.6);
+const playLillyFinal = () => playAudio('/audio/lilly-final.mp3', 0.7);
 
 const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) => {
   // Pet pictures data with AI response logic
@@ -31,10 +35,14 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
   const [availablePets, setAvailablePets] = useState(allPetPictures);
   const [draggedPet, setDraggedPet] = useState<any>(null);
   const [currentMessage, setCurrentMessage] = useState<any>(null);
-  const [gamePhase, setGamePhase] = useState<'video' | 'loading' | 'training'>('video'); // Start with video
+  const [gamePhase, setGamePhase] = useState<'video' | 'loading' | 'training' | 'generation' | 'complete'>('video');
+  const [inputText, setInputText] = useState('');
+  const [generatedPictures, setGeneratedPictures] = useState<string[]>([]);
   const [wrongAttempts, setWrongAttempts] = useState<{[key: number]: number}>({});
   const [completedPets, setCompletedPets] = useState(0);
   const [isDragBlocked, setIsDragBlocked] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isShowingFinalResult, setIsShowingFinalResult] = useState(false);
   const [isMobile, setIsMobile] = useState<boolean>(false);
 
   // Mobile touch drag and drop support
@@ -55,9 +63,7 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-
-
-  // Simplified touch handlers for React events
+  // Touch handlers for mobile drag and drop
   const handleTouchStart = (e: React.TouchEvent, pet: any) => {
     if (currentMessage || isDragBlocked) {
       return;
@@ -130,69 +136,39 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
     document.body.style.height = '';
   };
 
+  // Training completion logic - transitions to generation phase
+  useEffect(() => {
+    if (completedPets === 4 && gamePhase === 'training' && !isTransitioning) {
+      setIsTransitioning(true);
+      setGamePhase('loading');
+      
+      setTimeout(() => {
+        setCurrentMessage({
+          type: 'generation-prompt',
+          text: "I want to show you something cool, ask me to create a picture of a dog or a cat!"
+        });
+        setGamePhase('generation');
+        setIsTransitioning(false);
+      }, 500);
+    }
+  }, [completedPets, gamePhase, isTransitioning]);
+
+  // Check if generation phase is complete
+  useEffect(() => {
+    if (gamePhase === 'generation' && generatedPictures.includes('cat') && generatedPictures.includes('dog') && !isShowingFinalResult) {
+      console.log('Game complete, but waiting for final result to finish showing...');
+    }
+  }, [generatedPictures, gamePhase, isShowingFinalResult]);
+
   // Loading component
   const LoadingScreen = () => {
     return (
-      <>
-        <style>
-          {`
-            .loading-container {
-              min-height: 100vh;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-              padding: 20px;
-            }
-            .loading-content {
-              text-align: center;
-              background: white;
-              padding: 2rem;
-              border-radius: 16px;
-              box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-            }
-            .loading-spinner {
-              width: 40px;
-              height: 40px;
-              border: 4px solid #f3f3f3;
-              border-top: 4px solid #667eea;
-              border-radius: 50%;
-              animation: spin 1s linear infinite;
-              margin: 0 auto 1rem auto;
-            }
-            .loading-text {
-              font-size: 1.2rem;
-              color: #333;
-              margin: 0;
-            }
-            @keyframes spin {
-              0% { transform: rotate(0deg); }
-              100% { transform: rotate(360deg); }
-            }
-            
-            /* Mobile responsive styles */
-            @media (max-width: 768px) {
-              .loading-container {
-                padding: 16px;
-              }
-              .loading-content {
-                padding: 1.5rem;
-                max-width: 90%;
-                width: 100%;
-              }
-              .loading-text {
-                font-size: 1rem;
-              }
-            }
-          `}
-        </style>
-        <div className="loading-container">
-          <div className="loading-content">
-            <div className="loading-spinner"></div>
-            <p className="loading-text">Loading...</p>
-          </div>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', padding: '20px' }}>
+        <div style={{ textAlign: 'center', background: 'white', padding: '2rem', borderRadius: '16px', boxShadow: '0 10px 30px rgba(0, 0, 0, 0.2)' }}>
+          <div style={{ width: '40px', height: '40px', border: '4px solid #f3f3f3', borderTop: '4px solid #667eea', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 1rem auto' }}></div>
+          <p style={{ fontSize: '1.2rem', color: '#333', margin: '0' }}>Loading...</p>
         </div>
-      </>
+      </div>
     );
   };
 
@@ -201,17 +177,6 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
     const [isPlaying, setIsPlaying] = useState(false);
     const [hasStarted, setHasStarted] = useState(false);
     const [videoRef, setVideoRef] = useState<HTMLVideoElement | null>(null);
-    const [showInstructions, setShowInstructions] = useState(true);
-    const [instructionsClass, setInstructionsClass] = useState('fade-in');
-
-    const handleVideoError = (e: any) => {
-      console.log('Video error:', e);
-      console.log('Video error details:', e.target.error);
-    };
-
-    const handleVideoLoad = () => {
-      console.log('Video loaded successfully!');
-    };
 
     const handleVideoEnded = () => {
       console.log('Video ended, transitioning to game...');
@@ -250,279 +215,35 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
       }
     };
 
-    const handleSpaceBar = (e: KeyboardEvent) => {
-      if (e.code === 'Space') {
-        e.preventDefault();
-        handlePlayClick();
-      }
-    };
-
-    useEffect(() => {
-      const fadeOutTimer = setTimeout(() => {
-        setInstructionsClass('fade-out');
-      }, 1700);
-
-      const hideTimer = setTimeout(() => {
-        setShowInstructions(false);
-      }, 2000);
-
-      return () => {
-        clearTimeout(fadeOutTimer);
-        clearTimeout(hideTimer);
-      };
-    }, []);
-
-    useEffect(() => {
-      document.addEventListener('keydown', handleSpaceBar);
-      return () => {
-        document.removeEventListener('keydown', handleSpaceBar);
-      };
-    }, [isPlaying, hasStarted, videoRef]);
-
     return (
-      <>
-        <style>
-          {`
-            .video-container {
-              min-height: 100vh;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-              padding: 20px;
-            }
-            .video-content {
-              text-align: center;
-              background: white;
-              padding: 2rem;
-              border-radius: 24px;
-              box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
-              max-width: 800px;
-              width: 100%;
-            }
-            .video-title {
-              font-size: 2rem;
-              font-weight: bold;
-              color: #333;
-              margin-bottom: 2rem;
-            }
-            .video-player {
-              position: relative;
-              margin-bottom: 2rem;
-              width: 100%;
-              display: flex;
-              justify-content: center;
-              align-items: center;
-            }
-            .game-video {
-              width: 100%;
-              height: auto;
-              border-radius: 12px;
-              box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-              max-width: 100%;
-            }
-            .play-button-overlay {
-              position: absolute;
-              top: 50%;
-              left: 50%;
-              transform: translate(-50%, -50%);
-              cursor: pointer;
-              z-index: 10;
-            }
-            .play-button {
-              width: 80px;
-              height: 80px;
-              background: rgba(0, 0, 0, 0.7);
-              border-radius: 50%;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              font-size: 2rem;
-              transition: all 0.3s ease;
-            }
-            .play-button:hover {
-              background: rgba(0, 0, 0, 0.8);
-              transform: scale(1.1);
-            }
-            .video-overlay-animated {
-              position: absolute;
-              bottom: 20px;
-              left: 50%;
-              transform: translateX(-50%);
-              background: rgba(0, 0, 0, 0.8);
-              color: white;
-              padding: 12px 20px;
-              border-radius: 20px;
-              font-size: 0.9rem;
-              transition: opacity 0.3s ease;
-            }
-            .fade-in {
-              opacity: 1;
-            }
-            .fade-out {
-              opacity: 0;
-            }
-            .video-instruction {
-              margin: 0;
-              font-weight: 500;
-            }
-            .skip-button {
-              padding: 12px 24px;
-              background: #6b7280;
-              color: white;
-              border: none;
-              border-radius: 8px;
-              font-size: 1rem;
-              font-weight: 600;
-              cursor: pointer;
-              transition: all 0.2s ease;
-            }
-            .skip-button:hover {
-              background: #4b5563;
-              transform: translateY(-1px);
-            }
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', padding: '20px' }}>
+        <div style={{ textAlign: 'center', background: 'white', padding: '2rem', borderRadius: '24px', boxShadow: '0 25px 50px rgba(0, 0, 0, 0.25)', maxWidth: '800px', width: '100%' }}>
+          <h1 style={{ fontSize: '2rem', fontWeight: 'bold', color: '#333', marginBottom: '2rem' }}>Train your AI with pets!</h1>
+          <div style={{ position: 'relative', marginBottom: '2rem', width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <video 
+              ref={setVideoRef}
+              style={{ width: '100%', height: 'auto', borderRadius: '12px', boxShadow: '0 8px 24px rgba(0, 0, 0, 0.15)', maxWidth: '100%' }}
+              playsInline
+              onEnded={handleVideoEnded}
+            >
+              <source src="/videos/l1q1.mp4" type="video/mp4" />
+              <source src="/videos/l1q1.mov" type="video/quicktime" />
+              Your browser does not support the video tag.
+            </video>
             
-            /* Mobile responsive styles */
-            @media (max-width: 768px) {
-              .video-container {
-                padding: 0;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-              }
-              .video-content {
-                padding: 1rem;
-                max-width: 100%;
-                background: transparent;
-                box-shadow: none;
-                border-radius: 0;
-              }
-              .video-title {
-                font-size: 1.5rem;
-                margin-bottom: 1rem;
-                color: white;
-                text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-              }
-              .video-player {
-                width: 100vw;
-                margin: 0 calc(-1rem);
-                padding: 0;
-                box-sizing: border-box;
-                background: transparent;
-              }
-              .game-video {
-                width: 100%;
-                height: auto;
-                aspect-ratio: 16/9;
-                object-fit: cover;
-                border-radius: 0;
-                box-shadow: none;
-                display: block;
-              }
-              .play-button {
-                width: 60px;
-                height: 60px;
-                font-size: 1.5rem;
-              }
-              .video-overlay-animated {
-                bottom: 10px;
-                padding: 8px 16px;
-                font-size: 0.8rem;
-              }
-              .skip-button {
-                padding: 10px 20px;
-                font-size: 0.9rem;
-                margin-top: 1rem;
-                background: rgba(255, 255, 255, 0.9);
-                color: #333;
-                backdrop-filter: blur(10px);
-              }
-              .skip-button:hover {
-                background: rgba(255, 255, 255, 1);
-              }
-            }
-            
-            @media (max-width: 480px) {
-              .video-content {
-                padding: 0.5rem;
-              }
-              .video-title {
-                font-size: 1.25rem;
-                margin: 0.5rem 0 1rem 0;
-                padding: 0 0.5rem;
-              }
-              .video-player {
-                width: 100vw;
-                margin: 0 calc(-0.5rem);
-                padding: 0;
-              }
-              .game-video {
-                width: 100%;
-                aspect-ratio: 16/9;
-                object-fit: cover;
-                border-radius: 0;
-                box-shadow: none;
-                border: none;
-                outline: none;
-              }
-              .play-button {
-                width: 50px;
-                height: 50px;
-                font-size: 1.25rem;
-              }
-              .video-overlay-animated {
-                font-size: 0.7rem;
-                padding: 6px 12px;
-              }
-              .skip-button {
-                margin: 1rem 0.5rem 0.5rem 0.5rem;
-                width: calc(100% - 1rem);
-              }
-            }
-          `}
-        </style>
-        <div className="video-container">
-          <div className="video-content">
-            <h1 className="video-title">Train your AI with pets!</h1>
-            <div className="video-player">
-              <video 
-                ref={setVideoRef}
-                className="game-video"
-                playsInline
-                onError={handleVideoError}
-                onLoadedData={handleVideoLoad}
-                onEnded={handleVideoEnded}
-              >
-                <source src="/videos/l1q1.mp4" type="video/mp4" />
-                <source src="/videos/l1q1.mov" type="video/quicktime" />
-                Your browser does not support the video tag.
-              </video>
-              
-              {(!hasStarted || !isPlaying) && (
-                <div className="play-button-overlay" onClick={handlePlayClick}>
-                  <div className="play-button">
-                    {!hasStarted ? '▶️' : isPlaying ? '⏸️' : '▶️'}
-                  </div>
+            {(!hasStarted || !isPlaying) && (
+              <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', cursor: 'pointer', zIndex: 10 }} onClick={handlePlayClick}>
+                <div style={{ width: '80px', height: '80px', background: 'rgba(0, 0, 0, 0.7)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', transition: 'all 0.3s ease' }}>
+                  {!hasStarted ? '▶️' : isPlaying ? '⏸️' : '▶️'}
                 </div>
-              )}
-
-              {showInstructions && (
-                <div className={`video-overlay-animated ${instructionsClass}`}>
-                  <p className="video-instruction">
-                    {!hasStarted 
-                      ? '▶️ Click to start video' 
-                      : isPlaying 
-                        ? '⏸️ Click to pause' 
-                        : '▶️ Click to play'
-                    } • Press SPACE
-                  </p>
-                </div>
-              )}
-            </div>
-            <button className="skip-button" onClick={handleSkipVideo}>
-              Skip Video
-            </button>
+              </div>
+            )}
           </div>
+          <button style={{ padding: '12px 24px', background: '#6b7280', color: 'white', border: 'none', borderRadius: '8px', fontSize: '1rem', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s ease' }} onClick={handleSkipVideo}>
+            Skip Video
+          </button>
         </div>
-      </>
+      </div>
     );
   };
 
@@ -589,9 +310,16 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
       
       setCompletedPets(newCompletedCount);
       
+      if (isLastPet) {
+        setIsTransitioning(true);
+      }
+      
       setTimeout(() => {
         setCurrentMessage(null);
         setIsDragBlocked(false);
+        if (isLastPet) {
+          setIsTransitioning(false);
+        }
       }, isLastPet ? 2500 : 1500);
     } else {
       playWrongSound();
@@ -620,6 +348,105 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
     }
   };
 
+  const handleSendMessage = () => {
+    if (gamePhase !== 'generation') return;
+
+    const message = inputText.toLowerCase().trim();
+    
+    if (message.includes('cat') || message.includes('dog')) {
+      const requestedAnimal = message.includes('cat') ? 'cat' : 'dog';
+      const generatedEmoji = requestedAnimal === 'cat' ? '🐱' : '🐶';
+      
+      // Update generated pictures first
+      const updatedPictures = [...generatedPictures];
+      if (!updatedPictures.includes(requestedAnimal)) {
+        updatedPictures.push(requestedAnimal);
+      }
+      setGeneratedPictures(updatedPictures);
+      
+      // Check if this will complete the game
+      const willCompleteGame = updatedPictures.includes('cat') && updatedPictures.includes('dog');
+      
+      setCurrentMessage({
+        type: 'generated-image',
+        text: `Here's a ${requestedAnimal} I created for you!`,
+        image: generatedEmoji
+      });
+      
+      // PLAY ANIMAL SOUND based on what was generated
+      if (requestedAnimal === 'cat') {
+        playCatMeow();
+      } else if (requestedAnimal === 'dog') {
+        playDogBark();
+      }
+      
+      setInputText('');
+      
+      // Handle timing based on whether game is complete
+      if (willCompleteGame) {
+        // This is the final result - show it longer then end game
+        setIsShowingFinalResult(true);
+        setTimeout(() => {
+          setIsShowingFinalResult(false);
+          // PLAY SUCCESS SOUND when game completes
+          playSuccessSound();
+          
+          // PLAY LILLY FINAL AUDIO after success sound finishes (approximate 3 second delay)
+          setTimeout(() => {
+            playLillyFinal();
+          }, 3000);
+          
+          setGamePhase('loading');
+          setTimeout(() => {
+            setGamePhase('complete');
+          }, 500);
+        }, 3000);
+      } else {
+        // Not the final result - show normally then return to prompt
+        setTimeout(() => {
+          setCurrentMessage({
+            type: 'generation-prompt',
+            text: "I want to show you something cool, ask me to create a picture of a dog or a cat!"
+          });
+        }, 3000);
+      }
+    } else {
+      setInputText('');
+      
+      setCurrentMessage({
+        type: 'input-error',
+        text: "Type either 'cat' or 'dog' into the text box!"
+      });
+      
+      setTimeout(() => {
+        setCurrentMessage({
+          type: 'generation-prompt',
+          text: "I want to show you something cool, ask me to create a picture of a dog or a cat!"
+        });
+      }, 3000);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSendMessage();
+    }
+  };
+
+  const handleReplay = () => {
+    setAvailablePets(allPetPictures);
+    setDraggedPet(null);
+    setCurrentMessage(null);
+    setGamePhase('video');
+    setInputText('');
+    setGeneratedPictures([]);
+    setWrongAttempts({});
+    setCompletedPets(0);
+    setIsDragBlocked(false);
+    setIsTransitioning(false);
+    setIsShowingFinalResult(false);
+  };
+
   // Show video intro
   if (gamePhase === 'video') {
     return <VideoIntro />;
@@ -630,440 +457,100 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
     return <LoadingScreen />;
   }
 
+  // Game completion screen
+  if (gamePhase === 'complete') {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', padding: '20px' }}>
+        <div style={{ textAlign: 'center', background: 'white', padding: '3rem', borderRadius: '24px', boxShadow: '0 25px 50px rgba(0, 0, 0, 0.25)', maxWidth: '600px', width: '100%' }}>
+          <h1 style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#333', marginBottom: '1rem' }}>Congrats! You finished!</h1>
+          <div style={{ fontSize: '4rem', margin: '1rem 0' }}>🎉</div>
+          <p style={{ fontSize: '1.2rem', color: '#555', lineHeight: '1.6', marginBottom: '2rem' }}>
+            You successfully trained the AI to recognize cats and dogs, and then used it to generate new pictures!
+          </p>
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button style={{ padding: '15px 30px', border: 'none', borderRadius: '8px', fontSize: '1.1rem', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s ease', background: 'linear-gradient(135deg, #667eea, #764ba2)', color: 'white' }} onClick={handleReplay}>
+              Replay
+            </button>
+            {onBackToMenu && (
+              <button style={{ padding: '15px 30px', border: 'none', borderRadius: '8px', fontSize: '1.1rem', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s ease', background: '#6b7280', color: 'white' }} onClick={onBackToMenu}>
+                Back to Games
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Main game interface
   return (
     <>
       <style>
         {`
-          .game-container {
-            min-height: 100vh;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-          }
-          .game-content {
-            background: white;
-            border-radius: 24px;
-            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
-            padding: 2rem;
-            width: 100%;
-            max-width: 900px;
-          }
-          .game-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 1rem;
-          }
-          .back-to-games-btn {
-            padding: 8px 16px;
-            background: #6b7280;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.9rem;
-            transition: background 0.2s;
-          }
-          .back-to-games-btn:hover {
-            background: #4b5563;
-          }
-          .game-title {
-            margin: 0;
-            flex: 1;
-            text-align: center;
-            font-size: 1.8rem;
-            font-weight: bold;
-            color: #333;
-          }
-          .header-spacer {
-            width: 100px;
-          }
-          .chat-interface {
-            background: #f8fafc;
-            border-radius: 16px;
-            overflow: hidden;
-            margin-bottom: 1.5rem;
-          }
-          .chat-area {
-            min-height: 200px;
-            padding: 1.5rem;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            border: 2px dashed #e2e8f0;
-            border-radius: 16px 16px 0 0;
-            background: white;
-          }
-          .chat-placeholder {
-            color: #64748b;
-            font-size: 1.1rem;
-            text-align: center;
-            margin: 0;
-          }
-          .chat-message {
-            display: flex;
-            align-items: flex-start;
-            gap: 1rem;
-            width: 100%;
-            max-width: 500px;
-          }
-          .ai-avatar {
-            font-size: 2rem;
-            flex-shrink: 0;
-          }
-          .message-content {
-            flex: 1;
-          }
-          .ai-response {
-            background: #f1f5f9;
-            padding: 1rem;
-            border-radius: 12px;
-            font-size: 1rem;
-            margin-bottom: 1rem;
-          }
-          .thinking-dots {
-            display: flex;
-            gap: 4px;
-            justify-content: center;
-          }
-          .thinking-dots span {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #667eea;
-            animation: thinking 1.4s infinite;
-          }
-          .thinking-dots span:nth-child(2) {
-            animation-delay: 0.2s;
-          }
-          .thinking-dots span:nth-child(3) {
-            animation-delay: 0.4s;
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
           }
           @keyframes thinking {
             0%, 60%, 100% { transform: scale(1); opacity: 0.7; }
             30% { transform: scale(1.2); opacity: 1; }
           }
-          .dragged-pet-display {
-            text-align: center;
-            margin-bottom: 1rem;
-          }
-          .pet-emoji-large {
-            font-size: 4rem;
-          }
-          .feedback-section {
-            text-align: center;
-          }
-          .feedback-question {
-            font-size: 1.1rem;
-            margin-bottom: 1rem;
-            color: #333;
-            font-weight: 600;
-          }
-          .feedback-buttons {
-            display: flex;
-            gap: 0.5rem;
-            justify-content: center;
-          }
-          .yes-button, .no-button {
-            padding: 6px 12px;
-            border: none;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            min-width: 50px;
-          }
-          .yes-button {
-            background: #10b981;
-            color: white;
-          }
-          .yes-button:hover {
-            background: #059669;
-            transform: translateY(-1px);
-          }
-          .no-button {
-            background: #ef4444;
-            color: white;
-          }
-          .no-button:hover {
-            background: #dc2626;
-            transform: translateY(-1px);
-          }
-          .correct-message {
-            background: #d1fae5;
-            color: #065f46;
-            padding: 1rem;
-            border-radius: 12px;
-            font-size: 1.2rem;
-            font-weight: 600;
-            text-align: center;
-            border: 2px solid #10b981;
-          }
-          .retry-message {
-            background: #fef3c7;
-            color: #92400e;
-            padding: 1rem;
-            border-radius: 12px;
-            font-size: 1.1rem;
-            font-weight: 600;
-            text-align: center;
-            border: 2px solid #f59e0b;
-          }
-          .inventory {
-            background: #f8fafc;
-            padding: 1.5rem;
-            border-radius: 16px;
-            border: 2px solid #e2e8f0;
-          }
-          .inventory-title {
-            font-size: 1.2rem;
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 1rem;
-            text-align: center;
-          }
-          .pet-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 1rem;
-          }
-          .pet-card {
-            background: white;
-            padding: 1rem;
-            border-radius: 12px;
-            text-align: center;
-            cursor: grab;
-            transition: all 0.2s ease;
-            border: 2px solid #e2e8f0;
-            user-select: none;
-            touch-action: none;
-          }
-          .pet-card:hover:not(.drag-disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
-            border-color: #667eea;
-          }
-          .pet-card.drag-disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-          }
-          .pet-emoji {
-            font-size: 2.5rem;
-            margin-bottom: 0.5rem;
-          }
-          .pet-name {
-            font-size: 0.9rem;
-            font-weight: 500;
-            color: #64748b;
-          }
-          .pet-card.being-dragged {
-            opacity: 0.3;
-            transform: scale(0.9);
-          }
-          .mobile-drag-preview {
-            position: fixed;
-            pointer-events: none;
-            z-index: 1000;
-            transform: translate(-50%, -50%);
-            opacity: 0.8;
-            background: white;
-            padding: 0.5rem;
-            border-radius: 8px;
-            border: 2px solid #667eea;
-            font-size: 0.8rem;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            text-align: center;
-            top: 0;
-            left: 0;
-            will-change: transform;
-          }
-          .mobile-drag-preview .drag-emoji {
-            font-size: 1.5rem;
-            margin-bottom: 0.25rem;
-            display: block;
-          }
-          .mobile-drag-preview .drag-name {
-            font-size: 0.7rem;
-            color: #64748b;
-            font-weight: 500;
-            white-space: nowrap;
-          }
-          .chat-area.drag-over {
-            background: #f0f9ff !important;
-            border-color: #667eea !important;
-            border-style: solid !important;
-          }
-          .chat-area.drag-over .chat-placeholder {
-            color: #667eea !important;
-            font-weight: 600 !important;
-          }
-          
-          /* Mobile responsive styles */
-          @media (max-width: 768px) {
-            .game-container {
-              padding: 16px;
-              align-items: flex-start;
-            }
-            .game-content {
-              padding: 1.5rem;
-              max-width: 100%;
-              margin-top: 20px;
-            }
-            .game-header {
-              flex-direction: column;
-              gap: 1rem;
-              align-items: stretch;
-            }
-            .back-to-games-btn {
-              align-self: flex-start;
-              padding: 6px 12px;
-              font-size: 0.8rem;
-            }
-            .game-title {
-              text-align: center;
-              font-size: 1.5rem;
-            }
-            .header-spacer {
-              display: none;
-            }
-            .chat-area {
-              min-height: 150px;
-              padding: 1rem;
-            }
-            .chat-placeholder {
-              font-size: 1rem;
-            }
-            .chat-message {
-              max-width: 100%;
-            }
-            .ai-avatar {
-              font-size: 1.5rem;
-            }
-            .ai-response {
-              font-size: 0.9rem;
-              padding: 0.75rem;
-            }
-            .pet-emoji-large {
-              font-size: 3rem;
-            }
-            .feedback-question {
-              font-size: 1rem;
-            }
-            .feedback-buttons {
-              gap: 0.75rem;
-            }
-            .yes-button, .no-button {
-              padding: 8px 16px;
-              font-size: 0.85rem;
-              min-width: 70px;
-            }
-            .correct-message, .retry-message {
-              font-size: 1rem;
-              padding: 0.75rem;
-            }
-            .inventory {
-              padding: 1rem;
-            }
-            .inventory-title {
-              font-size: 1rem;
-            }
-            .pet-grid {
-              grid-template-columns: repeat(2, 1fr);
-              gap: 0.75rem;
-            }
-            .pet-card {
-              padding: 0.75rem;
-            }
-            .pet-emoji {
-              font-size: 2rem;
-            }
-            .pet-name {
-              font-size: 0.8rem;
-            }
-          }
-          
-          @media (max-width: 480px) {
-            .game-content {
-              padding: 1rem;
-            }
-            .game-title {
-              font-size: 1.25rem;
-            }
-            .chat-area {
-              min-height: 120px;
-              padding: 0.75rem;
-            }
-            .chat-placeholder {
-              font-size: 0.9rem;
-            }
-            .ai-response {
-              font-size: 0.8rem;
-              padding: 0.5rem;
-            }
-            .pet-emoji-large {
-              font-size: 2.5rem;
-            }
-            .pet-grid {
-              grid-template-columns: 1fr 1fr;
-              gap: 0.5rem;
-            }
-            .pet-card {
-              padding: 0.5rem;
-            }
-            .pet-emoji {
-              font-size: 1.5rem;
-            }
-            .pet-name {
-              font-size: 0.7rem;
-            }
-          }
         `}
       </style>
-      <div className="game-container">
+      <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
         
         {/* Mobile drag preview */}
         {isDragging && touchDragPet && dragPosition.x > 0 && dragPosition.y > 0 && (
           <div 
-            className="mobile-drag-preview"
             style={{
-              transform: `translate(${dragPosition.x - 50}px, ${dragPosition.y - 50}px)`
+              position: 'fixed',
+              pointerEvents: 'none',
+              zIndex: 1000,
+              transform: `translate(${dragPosition.x - 50}px, ${dragPosition.y - 50}px)`,
+              opacity: 0.8,
+              background: 'white',
+              padding: '0.5rem',
+              borderRadius: '8px',
+              border: '2px solid #667eea',
+              fontSize: '0.8rem',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+              textAlign: 'center',
+              top: 0,
+              left: 0,
+              willChange: 'transform'
             }}
           >
-            <div className="drag-emoji">{touchDragPet.emoji}</div>
-            <div className="drag-name">{touchDragPet.name}</div>
+            <div style={{ fontSize: '1.5rem', marginBottom: '0.25rem', display: 'block' }}>{touchDragPet.emoji}</div>
+            <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: '500', whiteSpace: 'nowrap' }}>{touchDragPet.name}</div>
           </div>
         )}
 
-        <div className="game-content">
+        <div style={{ background: 'white', borderRadius: '24px', boxShadow: '0 25px 50px rgba(0, 0, 0, 0.25)', padding: '2rem', width: '100%', maxWidth: '900px' }}>
           {/* Header with back button */}
-          <div className="game-header">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
             {onBackToMenu && (
               <button 
                 onClick={onBackToMenu} 
-                className="back-to-games-btn"
+                style={{ padding: '8px 16px', background: '#6b7280', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem', transition: 'background 0.2s' }}
               >
                 ← Back
               </button>
             )}
-            <h1 className="game-title">
+            <h1 style={{ margin: 0, flex: 1, textAlign: 'center', fontSize: '1.8rem', fontWeight: 'bold', color: '#333' }}>
               Train your AI with pets!
             </h1>
-            <div className="header-spacer"></div>
+            <div style={{ width: '100px' }}></div>
           </div>
           
-          <div className="chat-interface">
+          <div style={{ background: '#f8fafc', borderRadius: '16px', overflow: 'hidden', marginBottom: '1.5rem' }}>
             <div 
-              className={`chat-area ${isDragging ? 'drag-over' : ''}`}
+              style={{ minHeight: '200px', padding: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', border: '2px dashed #e2e8f0', borderRadius: '16px 16px 0 0', background: isDragging ? '#f0f9ff' : 'white', borderColor: isDragging ? '#667eea' : '#e2e8f0', borderStyle: 'solid' }}
               onDragOver={handleDragOver}
               onDrop={handleDrop}
+              className="chat-area"
             >
               {!currentMessage ? (
-                <p className="chat-placeholder">
+                <p style={{ color: isDragging ? '#667eea' : '#64748b', fontSize: '1.1rem', textAlign: 'center', margin: 0, fontWeight: isDragging ? '600' : 'normal' }}>
                   {gamePhase === 'training' 
                     ? isDragging 
                       ? "Drop the pet here!" 
@@ -1074,12 +561,12 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
                   }
                 </p>
               ) : currentMessage.type === 'pet-dropped' ? (
-                <div className="chat-message">
-                  <div className="ai-avatar">🤖</div>
-                  <div className="message-content">
-                    <div className="ai-response">Let me take a look at this...</div>
-                    <div className="dragged-pet-display">
-                      <div className="pet-emoji-large">{currentMessage.pet?.emoji}</div>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', width: '100%', maxWidth: '500px' }}>
+                  <div style={{ fontSize: '2rem', flexShrink: 0 }}>🤖</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ background: '#f1f5f9', padding: '1rem', borderRadius: '12px', fontSize: '1rem', marginBottom: '1rem' }}>Let me take a look at this...</div>
+                    <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
+                      <div style={{ fontSize: '4rem' }}>{currentMessage.pet?.emoji}</div>
                       <div style={{fontSize: '1rem', color: '#64748b', marginTop: '0.5rem'}}>
                         {currentMessage.pet?.name}
                       </div>
@@ -1087,48 +574,66 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
                   </div>
                 </div>
               ) : currentMessage.type === 'thinking' ? (
-                <div className="chat-message">
-                  <div className="ai-avatar">🤖</div>
-                  <div className="message-content">
-                    <div className="ai-response">
-                      <div className="thinking-dots">
-                        <span></span>
-                        <span></span>
-                        <span></span>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', width: '100%', maxWidth: '500px' }}>
+                  <div style={{ fontSize: '2rem', flexShrink: 0 }}>🤖</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ background: '#f1f5f9', padding: '1rem', borderRadius: '12px', fontSize: '1rem', marginBottom: '1rem' }}>
+                      <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#667eea', animation: 'thinking 1.4s infinite' }}></span>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#667eea', animation: 'thinking 1.4s infinite', animationDelay: '0.2s' }}></span>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#667eea', animation: 'thinking 1.4s infinite', animationDelay: '0.4s' }}></span>
                       </div>
                     </div>
-                    <div className="dragged-pet-display">
-                      <div className="pet-emoji-large">{currentMessage.pet?.emoji}</div>
+                    <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
+                      <div style={{ fontSize: '4rem' }}>{currentMessage.pet?.emoji}</div>
                     </div>
                   </div>
                 </div>
               ) : currentMessage.type === 'correct' ? (
-                <div className="correct-message">
+                <div style={{ background: '#d1fae5', color: '#065f46', padding: '1rem', borderRadius: '12px', fontSize: '1.2rem', fontWeight: '600', textAlign: 'center', border: '2px solid #10b981' }}>
                   {currentMessage.text}
                 </div>
               ) : currentMessage.type === 'retry' ? (
-                <div className="retry-message">
+                <div style={{ background: '#fef3c7', color: '#92400e', padding: '1rem', borderRadius: '12px', fontSize: '1.1rem', fontWeight: '600', textAlign: 'center', border: '2px solid #f59e0b' }}>
                   {currentMessage.text}
                 </div>
+              ) : currentMessage.type === 'input-error' ? (
+                <div style={{ background: '#fee2e2', color: '#dc2626', padding: '1rem', borderRadius: '12px', fontSize: '1.1rem', fontWeight: '600', textAlign: 'center', border: '2px solid #ef4444' }}>
+                  {currentMessage.text}
+                </div>
+              ) : currentMessage.type === 'generated-image' ? (
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', width: '100%', maxWidth: '500px' }}>
+                  <div style={{ fontSize: '2rem', flexShrink: 0 }}>🤖</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ textAlign: 'center', fontSize: '4rem', marginTop: '1rem' }}>{currentMessage.image}</div>
+                  </div>
+                </div>
+              ) : currentMessage.type === 'generation-prompt' ? (
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', width: '100%', maxWidth: '500px' }}>
+                  <div style={{ fontSize: '2rem', flexShrink: 0 }}>🤖</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ background: '#f1f5f9', padding: '1rem', borderRadius: '12px', fontSize: '1rem', marginBottom: '1rem' }}>{currentMessage.text}</div>
+                  </div>
+                </div>
               ) : (
-                <div className="chat-message">
-                  <div className="ai-avatar">🤖</div>
-                  <div className="message-content">
-                    <div className="ai-response">{currentMessage.text}</div>
-                    <div className="dragged-pet-display">
-                      <div className="pet-emoji-large">{currentMessage.pet?.emoji}</div>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', width: '100%', maxWidth: '500px' }}>
+                  <div style={{ fontSize: '2rem', flexShrink: 0 }}>🤖</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ background: '#f1f5f9', padding: '1rem', borderRadius: '12px', fontSize: '1rem', marginBottom: '1rem' }}>{currentMessage.text}</div>
+                    <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
+                      <div style={{ fontSize: '4rem' }}>{currentMessage.pet?.emoji}</div>
                     </div>
-                    <div className="feedback-section">
-                      <p className="feedback-question">Did the AI get it right?</p>
-                      <div className="feedback-buttons">
+                    <div style={{ textAlign: 'center' }}>
+                      <p style={{ fontSize: '1.1rem', marginBottom: '1rem', color: '#333', fontWeight: '600' }}>Did the AI get it right?</p>
+                      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
                         <button 
-                          className="yes-button"
+                          style={{ padding: '6px 12px', border: 'none', borderRadius: '6px', fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s ease', minWidth: '50px', background: '#10b981', color: 'white' }}
                           onClick={() => handleFeedback('yes')}
                         >
                           Yes
                         </button>
                         <button 
-                          className="no-button"
+                          style={{ padding: '6px 12px', border: 'none', borderRadius: '6px', fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s ease', minWidth: '50px', background: '#ef4444', color: 'white' }}
                           onClick={() => handleFeedback('no')}
                         >
                           No
@@ -1139,28 +644,61 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
                 </div>
               )}
             </div>
+            
+            <div style={{ background: '#f1f5f9', padding: '1rem' }}>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <input 
+                  type="text" 
+                  placeholder={gamePhase === 'training' ? "Type a message..." : "Type 'cat' or 'dog'..."}
+                  style={{ flex: 1, padding: '12px 16px', border: '2px solid #e2e8f0', borderRadius: '8px', fontSize: '1rem', outline: 'none', transition: 'border-color 0.2s', background: gamePhase === 'training' ? '#f8fafc' : 'white', color: gamePhase === 'training' ? '#94a3b8' : 'black', cursor: gamePhase === 'training' ? 'not-allowed' : 'text' }}
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  disabled={gamePhase === 'training'}
+                />
+                <button 
+                  style={{ padding: '12px 24px', background: gamePhase === 'training' ? '#94a3b8' : '#667eea', color: 'white', border: 'none', borderRadius: '8px', fontSize: '1rem', fontWeight: '600', cursor: gamePhase === 'training' ? 'not-allowed' : 'pointer', transition: 'all 0.2s ease', transform: 'none' }}
+                  onClick={handleSendMessage}
+                  disabled={gamePhase === 'training'}
+                >
+                  Send
+                </button>
+              </div>
+            </div>
           </div>
           
           {gamePhase === 'training' && (
-            <div className="inventory">
-              <h3 className="inventory-title">
+            <div style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '16px', border: '2px solid #e2e8f0' }}>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: '600', color: '#333', marginBottom: '1rem', textAlign: 'center' }}>
                 Your Pet Pictures:
                 {availablePets.length > 0 && ` (${availablePets.length} remaining)`}
               </h3>
-              <div className="pet-grid">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
                 {availablePets.map((pet) => (
                   <div 
                     key={pet.id} 
                     ref={el => { petCardRefs.current[pet.id] = el; }}
-                    className={`pet-card ${isDragBlocked || currentMessage ? 'drag-disabled' : ''} ${touchDragPet?.id === pet.id && isDragging ? 'being-dragged' : ''}`}
+                    style={{ 
+                      background: 'white', 
+                      padding: '1rem', 
+                      borderRadius: '12px', 
+                      textAlign: 'center', 
+                      cursor: (isDragBlocked || currentMessage) ? 'not-allowed' : 'grab', 
+                      transition: 'all 0.2s ease', 
+                      border: '2px solid #e2e8f0', 
+                      userSelect: 'none', 
+                      touchAction: 'none',
+                      opacity: (touchDragPet?.id === pet.id && isDragging) ? 0.3 : (isDragBlocked || currentMessage) ? 0.5 : 1,
+                      transform: (touchDragPet?.id === pet.id && isDragging) ? 'scale(0.9)' : 'none'
+                    }}
                     draggable={!isMobile && !isDragBlocked && !currentMessage}
                     onDragStart={() => !isMobile && handleDragStart(pet)}
                     onTouchStart={(e) => isMobile && handleTouchStart(e, pet)}
                     onTouchMove={(e) => isMobile && handleTouchMove(e)}
                     onTouchEnd={(e) => isMobile && handleTouchEnd(e)}
                   >
-                    <div className="pet-emoji">{pet.emoji}</div>
-                    <div className="pet-name">{pet.name}</div>
+                    <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>{pet.emoji}</div>
+                    <div style={{ fontSize: '0.9rem', fontWeight: '500', color: '#64748b' }}>{pet.name}</div>
                   </div>
                 ))}
               </div>
