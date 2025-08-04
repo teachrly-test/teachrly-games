@@ -765,18 +765,18 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
           }
           .feedback-buttons {
             display: flex;
-            gap: 1rem;
+            gap: 0.5rem;
             justify-content: center;
           }
           .yes-button, .no-button {
-            padding: 12px 24px;
+            padding: 6px 12px;
             border: none;
-            border-radius: 8px;
-            font-size: 1rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.2s ease;
-            min-width: 80px;
+            min-width: 50px;
           }
           .yes-button {
             background: #10b981;
@@ -955,15 +955,12 @@ const TrainAIGame: React.FC<{onBackToMenu?: () => void}> = ({ onBackToMenu }) =>
               font-size: 1rem;
             }
             .feedback-buttons {
-              flex-direction: row;
               gap: 0.75rem;
-              justify-content: center;
             }
             .yes-button, .no-button {
               padding: 8px 16px;
               font-size: 0.85rem;
               min-width: 70px;
-              flex: 0 0 auto;
             }
             .correct-message, .retry-message {
               font-size: 1rem;
